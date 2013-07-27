@@ -1,0 +1,32 @@
+\documentclass[a4paper,10pt,oneside]{book}
+%\documentclass[a4paper,10pt,doubleside]{book}
+
+% set all margins to 2.5 cm
+\usepackage[nohead,margin=2.5cm]{geometry}
+
+\usepackage{url}
+
+% abbreviations
+\usepackage{nomencl}
+\makenomenclature
+\renewcommand{\nomname}{List of Abbreviations}
+\input{abbrvs}
+
+% remove headers. add page number to footer
+\pagestyle{plain}
+
+% 1.5 lines of spacing
+\usepackage[onehalfspacing]{setspace}
+
+% set footnote font to 9pt
+\renewcommand\footnotesize{\fontsize{9}{9}\selectfont}
+
+% configure listings package
+\usepackage{listings}
+\lstset{
+  language=Prolog,  % <-- change this
+  numbers=left,
+  showspaces=false,
+  showstringspaces=false,
+  frame=single
+}
