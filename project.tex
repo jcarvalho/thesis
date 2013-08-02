@@ -1,0 +1,1480 @@
+\documentclass{llncs}
+\usepackage{tikz}
+\usepackage[simplified]{pgf-umlcd}
+\usepackage{cite}
+\usepackage{listings}
+\usepackage{paralist}
+%
+\begin{document}
+
+\title{LongXact: Making Long-Lived Transactions Easier to Develop}
+
+%% Title
+\author{Jo\~{a}o Pedro Carvalho} \institute{T\'{e}cnico de
+  Lisboa/Universidade T\'{e}cnica de Lisboa
+  \email{joao.pedro.carvalho@ist.utl.pt}}
+\maketitle
+
+%% Abstract
+
+\begin{abstract}
+  Over the past years, Software Transactional Memories have become
+  more and more popular, growing to be something more than simply a
+  research topic. On top of that, the concept has been extended to
+  encompass persistence, so the concept of Persistent Software
+  Transactional Memories (PSTM) was born. In this project, I propose
+  an extension to PSTMs to support Long-Lived Transactions. My thesis
+  is that supporting Long-Lived Transactions should be done at the
+  infrastructural level on Persistent STMs, so I will describe how
+  those systems can be extended to support Long-Lived Transactions.
+\end{abstract}
+
+%% Intro
+
+\section{Introduction}
+
+For many years, enterprise applications were developed using
+two-tiered architectures. In such architectures, there was typically a
+mainframe with great computational power, which served requests from
+thin clients. As hardware evolved over the years, so did the
+development of enterprise applications. Nowadays, most applications
+are developed using a three-tier architecture: Data Tier, Application
+Tier and Presentation Tier. Despite this separation, most applications
+still rely on the Data Tier for transactional support.
+
+With the adoption of multicore architectures over the past few years,
+{\it Software Transactional Memory} (STM) has seen many advancements.
+Because data persistency is a critical requirement in enterprise
+applications, STMs have been extended to collaborate with persistent
+storage systems, giving birth to the concept of {\it Persistent
+  Software Transactional Memory} \cite{fernandes2011strict}. Thus,
+several enterprise applications, such as the FenixEDU web application,
+are now using PSTMs for transactional support.
+
+Long-Lived Transactions were first described in 1981 as ``[..]
+transactions with lifetimes of a few days or
+weeks''\cite{gray1981transaction}, and can be found in many enterprise
+applications. Due to their duration, Long-Lived Transactions pose some
+challenges not encountered in short transactions, and thus, many
+attempts have been made to support them.
+
+My thesis consists on making Long-Lived Transactions easier to develop
+on top of a Persistent STM, by providing infrastructural-level
+support, relieving the programmer from all the effort that is required
+to implement them.
+
+In this project, I aim at adding support for Long-Lived Transactions
+in applications with Rich Domain Models.  A Rich Domain Model is ``An
+object model of the domain that incorporates both behaviour and
+data.``, as described by \cite{fowler2003patterns}, meaning that
+domain objects hold both their data and the business logic that
+manipulates them, as opposed to Anemic Domain Model, in which the
+domain objects simply contain data, and the business operations are
+handled by a separate Service layer. Also, in a Rich Domain Model,
+each domain object typically has an arbitrarily complex web of
+associations, multivalued attributes, inheritance, and is typically a
+part of some Object-Oriented design patterns.
+
+My main target throughout this project are enterprise applications in
+which the Domain Objects are persistent, transactionally updated, and
+handled transparently at an infrastructural level (meaning that the
+programmer should be mostly unaware of the persistence/data tier).
+
+This document is organized as follows. In Section 2, I will present
+Long-Lived Transactions in more detail, as well as explaining why they
+are difficult to implement without infrastructural support. In Section
+3, I present existing work on Long-Lived Transaction implementation
+and support, as well as explain why they are not suited for our
+requirements. In Section 4, I present the architecture of my solution,
+and describe the Fenix Framework, which will be the base for this
+work. In Section 5, I explain how the implementation will be
+evaluated. 
+
+Finally, in Section 6, I shall draw some conclusions.
+
+\section{Long-Lived Transactions}
+
+In this section I provide a concrete example of a Long-Lived
+Transaction, with the goal of, not only explaining the concept, but
+also to show how such transactions can be found in many
+applications. I then show why it is difficult for a programmer to
+implement a Long-Lived Transaction, thereby motivating as to why a new
+approach is needed.
+
+\subsection{What are Long-Lived Transactions?}
+\label{sec:what}
+
+As previously described, Long-Lived Transactions are transactions with
+a lifetime larger than a typical database transaction. To better
+understand this concept, consider the example shown in
+Figure~\ref{fig:courseDomain}, corresponding to a simplified fragment
+of the domain model for an application in the higher education domain.
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+
+\begin{class}[text width=4.5cm]{Course}{0.5,0}
+  \attribute{name : String} \attribute{objectives : String}
+  \attribute{credits : int} \attribute{bibliography : Publication[]}
+\end{class}
+
+\begin{class}[text width=3cm]{Department}{7.5,-0.85}
+\end{class}
+
+\association{Department}{}{1}{Course}{}{*}
+
+\end{tikzpicture}
+
+\caption{Sample Domain Model in UML}
+\label{fig:courseDomain}
+
+\end{figure}
+
+In this simplified domain model, a course belongs to a department, has
+a name, its objectives, the credits granted upon completion, and the
+recommended bibliography. The domain is deemed to be consistent only
+if all attributes of course have a defined value, and each course must
+have a department. Each department is responsible for managing its
+courses, meaning that it is up to someone who works in the department
+to start the process of creating new courses.
+
+Note that the creation of a new course should be executed
+transactionally, because other users of the system should not be able
+to see a course in an inconsistent state (either not connected to any
+departement and/or without all attributes properly defined).
+
+The pseudo-code in Listing~\ref{fig:courseCreation} implements the
+business operation of creating a new course. Assume that {\bf
+  department} is inferred from the user performing the operation.
+
+\lstset{language=Java, basicstyle=\ttfamily, stepnumber=2,
+  numbersep=9pt, tabsize=4, frame=single, caption={Pseudo-Code for the
+    creation of a new course. A new Course is created, associated with
+    its department, and its attributes are filled.},
+  label={fig:courseCreation}, captionpos=b}
+\begin{lstlisting}[float]
+Course course = new Course();
+department.addCourse(course);
+course.setName(name);
+course.setObjectives(objectives);
+course.setCredits(credits);
+course.setBibliography(bibliography);
+\end{lstlisting}
+
+There are several ways to implement this operation. I will now
+describe two common scenarios for said implementation.
+
+\subsubsection{Business Transaction in a single interaction}
+
+A possible implementation (most likely, the simplest) of the course
+creation operation in a web application is to have a single page in
+which the user provides all the required information. Once the
+information is submitted, a new Course is created, associated with the
+department of the person performing the operation, and all its
+attributes are filled according to the information submitted by the
+user. The new object is then stored in the database, making it
+persistent and available for other users to view.
+
+In this scenario, in which all the information can be provided in a
+single user interaction, the transactional guarantees of the operation
+are ensured by the underlying database (which is assumed to provide
+the classic transactional semantics \cite{gray1981transaction}),
+because the whole operation can be performed within the scope of a
+single database transaction.
+
+An important consequence of implementing the operation in a single
+database transaction is that the programmer can manipulate all the
+domain objects involved directly. The order in which the modifications
+to the objects are performed is irrelevant, as long as the domain is
+consistent when the transaction is committed. This is the semantics
+typically expected by a programmer of such applications: there may be
+instants in which some domain objects are in an inconsistent state
+(e.g. before defining the course's bibliography), but this
+inconsistent state will never be seen by the other users of the
+application. Those users will see the fully created object only when
+the operation is committed.
+
+\subsubsection{Business Transaction across multiple interactions}
+
+The model described in the previous scenario, whereas simple and easy
+to implement, may not be suited for every situation. Imagine that
+instead of four attributes, Course had 50 attributes. It would then be
+unfeasible to ask the user to fill everything out in a single web
+page. So, the logical solution would be to split the various
+attributes in multiple pages, accounting for multiple user
+interactions.
+
+Let us now assume that the creation of a course is made throughout
+three interactions. In the first interaction, the user selects the
+course's name, in the second interaction, the user introduces the
+objectives and credits, and in the final interaction, the user selects
+the bibliography, thus creating the course.
+
+At first glance, it would seem quite easy for a programmer to change
+the logic programmed in the first scenario to meet the new
+requirements: the programmer would simply have to split the code
+performed in a single request into three smaller parts, each to be
+executed in one request.
+
+Yet, having three separate requests implies having three different
+database transactions, breaking the atomicity and isolation of the
+operation. After handling the first request, the persisted domain
+would be in an inconsistent state (a course with no attributes other
+than its name).
+
+The implementation of the business logic must then take this issue
+into account, because the programmer cannot write the updates directly
+on the domain.
+
+This scenario represents what was defined as a Long-Lived Transaction,
+in which the Business Operation has a larger lifetime that a single
+database transaction (in this particular case, three database
+transactions).
+
+\subsection{Why are they difficult to implement?}
+\label{sec:difficult}
+
+In this multiple interaction scenario, the programmer must take
+special care when implementing the operation. As mentioned above, we
+cannot simply split the code used in the first scenario.
+
+The programmer has several choices for the implementation:
+
+\begin{enumerate}
+\item Keep a database transaction open during all the steps of the
+  operation.
+
+\item Create a parallel representation of the objects that are being
+  manipulated, store them outside the domain and apply the changes
+  only in the last interaction.
+
+\item Change the domain model, to represent the consistency state of
+  the objects being manipulated. This affects the code that operates
+  on that portion of the domain, because it must filter out objects
+  that are still in an inconsistent state.
+\end{enumerate}
+
+It should be clear that any of those solutions is far from trivial to
+implement, has some serious consequences (presented below), and, as I
+will demonstrate, is an unnecessary burden to the programmer.
+
+\subsubsection{Keeping a database transaction open}
+
+Given that atomicity and isolation are broken due to the fact that
+each interaction with the user is done within its own database
+transaction, we could think the solution would be to keep the database
+transaction open during the whole business transaction.
+
+However, most modern Relational Database Management Systems (RDBMSs)
+do not cope well with transactions that are open for arbitrarily large
+periods of time, because a long lived database transaction may limit
+concurrency, cause timeouts and deadlocks or starve the database's
+connection pool. All these factors contribute to making this approach
+highly undesirable, making the programmer seek alternative approaches.
+
+\subsubsection{Parallel Representation of the domain}
+
+In this approach, a series of objects similar to the domain objects
+are created, and must be managed manually, kept in the user's session
+context, outside the domain.
+
+As the complexity of the domain, and the number of objects manipulated
+by the operation, grow, it becomes harder for the programmer to
+manually manage the data that must be kept. Ultimately, there is a
+copy of the whole domain stored in the user's session, waiting for the
+last transaction to transactionally update the domain with all the
+information input by the user.
+
+This is the opposite of what would be desirable for the programmer:
+she should be able to operate directly on the domain.
+
+\subsubsection{Changing the domain model}
+
+Now imagine that an additional requirement is added to the system: the
+user may be allowed to log off in the middle of the process, and, upon
+logging back in, continue the work where she left off. Additionally,
+anyone else in the user's department should be able to pick up where
+the original user left off. With these requirements, it becomes clear
+that simply storing a copy of the domain in session-local storage is
+not enough.
+
+Web application containers already provide an application context,
+which could potentially solve this issue. Unfortunately, there are no
+real guarantees that the data stored in that context will be kept for
+an arbitrarily large period of time (recall that our transaction may
+span several days or weeks), meaning that the intermediate data must
+be kept persistently, forcing the programmer to be concerned with this
+issue.
+
+A possible solution for this requirement is to change our domain
+model, by adding a new attribute to the objects being modified (in
+this case, Course, as shown in
+Figure~\ref{fig:courseDomainState}). The {\bf status} attribute
+indicates whether the course is in a consistent state (Published) or
+not (Draft). Adding this attribute has a cost: not only the domain
+becomes polluted with information that is not relevant to the object
+being modeled, but this solution affects other functional code across
+the application, because course listings must filter out courses that
+are still in the Draft status, scattering the filtering code
+throughout the application.
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+
+\begin{class}[text width=4.5cm]{Course}{0.5,0}
+  \attribute{name : String} \attribute{objectives : String}
+  \attribute{credits : int} \attribute{bibliography : Publication[]}
+  \attribute{status : \{Draft, Published\}}
+\end{class}
+
+\begin{class}[text width=3cm]{Department}{7.5,-1}
+\end{class}
+
+\association{Department}{}{1}{Course}{}{*}
+
+\end{tikzpicture}
+
+\caption{Domain Model with state representation}
+\label{fig:courseDomainState}
+
+\end{figure}
+
+\subsubsection{Other approaches}
+
+There are other approaches to Long-Lived Transactions, such as using
+the Database. There are some DBMSs that announce support for
+Long-Lived Transactions, such as Oracle's Workspace Manager. However,
+such support is not standardized, their API's are proprietary,
+rendering Web frameworks unusable in those cases (they generally only
+support the SQL standard), forcing the application to be written
+against the proprietary API, making it very hard to change and
+maintain. All these factors contribute to make this approach
+inadmissible for most cases.
+
+\subsection{Applications of LLTs}
+
+Even though the example I just presented was targeted at a system with
+a rich domain model, there are several other applications of
+Long-Lived Transactions.
+
+\subsubsection{Database Management Systems}
+
+The example provided above is targeted at applications with a rich
+domain model, but there are many applications built directly on top of
+DBMSs. Those applications typically have requirements similar to those
+with a rich domain model, however, they must rely directly on the DBMS
+for transactional support.
+
+\subsubsection{Workflow Systems}
+
+Workflow Management Systems are another area in which Long-Lived
+Transactions are interesting. Workflow processes represent business
+transactions, consisting in a flow of steps or tasks, each of them
+possibly performed by different people.
+
+It is thus vital for Workflow Systems to embrace Long-Lived
+Transactions as a core concept, and many approaches have been
+developed in this area.
+
+Consider the Course Creation example. Assume that each step of the
+operation is executed by a different person. A Workflow Management
+System could be used to implement that operation.
+
+\subsection{Objectives}
+
+All this effort makes Long-Lived Transactions a concept that is very
+hard to implement, promotes bad software engineering practices
+(replication, code scattering, etc), and is difficult to reason
+about. My thesis is that the support for Long-Lived Transactions
+should be transparent, and at an infrastructural level, relieving the
+programmer from this burden.
+
+\section{Related Work}
+\label{sec:related}
+
+In this section I describe the various topics in which an attempt to
+solve the problem of Long Lived Transactions has been made, namely
+Database Management Systems, Workflow Systems, and Object/Relational
+Mapping Systems.
+
+Also, due to its relevance regarding the solution described in section
+4, I briefly present Software Transactional Memories (STM), Nested
+Transactions, Persistent STMs, and how they cope with short lived
+transactions.
+
+\subsection{Transactions in Database Management Systems}
+\label{sec:rdbms}
+
+Transactions are an age-old notion in the database world. They
+comprise a ``Unit of Work'' performed within a Database Management
+System, and ensure that concurrent access to shared mutable data is
+done in a consistent way.
+
+By definition, a database transaction must provide the four ACID
+properties:
+
+\begin{itemize}
+
+\item {\bf Atomicity} Requires that in a transaction, all database
+  operations either {\it all} occur, or {\it none} occurs. This
+  property guarantees that the transaction is indivisible and
+  irreductible.
+
+\item {\bf Consistency} Requires that every transaction will bring the
+  database from one valid state to another (according to a series of
+  consistency predicates defined for the database).
+
+\item {\bf Isolation} Requires that individual record updates within a
+  transaction are not visible outside of that transaction. When the
+  transaction commits, all record updates are visible to the rest of
+  the system.
+
+\item {\bf Durability} Requires that once a transaction is committed,
+  it will survive permanently. This means that once a transaction is
+  committed, its effects on the data will be permanent.
+
+\end{itemize}
+
+\subsubsection{Isolation Levels}
+\label{sec:isolation}
+
+To better understand the desired isolation level of a Long-Lived
+Transaction support system, an analysis of the most common isolation
+levels is in order.
+
+Attaining full isolation between transactions, while seemingly
+necessary, can oftentimes be a burden to the DBMS, due to the required
+overhead. Thus, isolation is, out of the four ACID properties, the one
+most often relaxed. Isolation is typically implemented using Locks or
+Multiversion concurrency control, which may result in a loss of
+concurrency. To cope with that fact, several standard isolation levels
+have been defined.
+
+In the ANSI/ISO SQL standard\cite{melton1992ansi}, four isolation
+levels have been defined (from most to least relaxed):
+
+\begin{itemize}
+\item {\bf Read Uncommitted} In this isolation level, read operations
+  are performed in a non-locking fashion, thus, {\it Dirty reads} may
+  occur. A {\it Dirty read} is defined as a read operation that reads
+  data updated by a live (not yet committed) transaction.
+\item {\bf Read Committed} In this level, {\it Dirty reads} cannot
+  happen, guaranteeing that all reads are {\it Consistent reads}
+  (meaning they only read data written by already committed
+  transactions). However, multiple reads to the same data location may
+  read different values (from transactions that committed in between),
+  even within a single transaction.
+\item With {\bf Repeatable Read}, all {\it Consistent reads} within
+  the same transaction read the snapshot established by the first
+  read.
+\item {\bf Serializable} is the {\it highest} isolation level defined
+  in SQL. Serializability requires repeatable reads, as well as
+  guaranteeing that {\it Phantom reads} do not occur. A {\it Phantom
+    read} occurs when, in the course of a transaction, two identical
+  queries (that act upon a range of values) return a different result
+  collection. This can occur when running queries like ``SELECT * FROM
+  users WHERE age BETWEEN 10 AND 30;''. If an interleaving transaction
+  creates a new user with an age between 10 and 30 years, the second
+  run of the query will show a result which contains the new user.
+\end{itemize}
+
+In \cite{papadimitriou1979serializability}, an extension to
+Serializability is described: Strict Serializability. In addition to
+the requirements for Serializability, Strict Serializability requires
+that transaction histories are real-time ordered, meaning that all
+transactions histories must be ordered in a way consistent with the
+precedence order of the operations. In practice, this isolation level
+is not implemented by DBMSs, due to its performance impact.
+
+Another common isolation level (not described in SQL-92) is {\bf
+  Snapshot Isolation}. In snapshot isolation, all reads made within a
+transaction are guaranteed to see a consistent snapshot of the
+database, and the transaction itself will only commit if no updates it
+has made conflict with any concurrent updates since the
+snapshot. Snapshot isolation arose from work on Multiversion
+Concurrency Control, and thus did not make it into the lock-centered
+mindset of the SQL-92 standard.
+
+\subsubsection{Concurrency Control}
+
+Concurrency Control is the mechanism that ensures that ``Concurrent
+execution should not cause application programs to malfunction''
+\cite{reuter1993transaction}. This property was coined in 1993 as the
+first law of Concurrency Control, by Jim Gray. In fact, concurrency
+control mechanisms are what ensure that the ACID properties of
+transactions are kept under an environment with concurrent access to
+shared mutable data. Research on the topic dates back to the
+1970s\cite{rosenkrantz1978system} and 1980s\cite{gray1981transaction},
+and is still a hot topic nowadays.
+
+There are two main categories of Concurrency Control:
+
+\begin{itemize}
+
+\item {\bf Optimistic} Delaying integrity checking until the end of
+  the transaction, without blocking any of its reads and writes.
+  Optimistic concurrency control allows for greater concurrency,
+  because concurrent operations can proceed without interfering with
+  each other. On the other hand, given that integrity is only checked
+  in the end of the transaction, conflicts are not detected until all
+  the work is done and the transaction has to be restarted. It is
+  typically implemented by Multiversion Concurrency Control and
+  Timestamp Ordering mechanisms\cite{Bernstein1981}.
+
+\item {\bf Pessimistic} Every data access in the transaction acquires
+  a lock before proceeding. During the acquisition process, if an
+  integrity violation is detected, the transaction is aborted, rolling
+  back every write and releasing every held lock. Once the transaction
+  is finished, it is marked as committed, and all the locks are
+  released. The main method in this category is Two-Phase
+  Locking\cite{Bernstein1981}.
+
+\end{itemize}
+
+Historically, pessimistic concurrency control has been the dominant
+category, and even nowadays, most Relational Databases implement it.
+
+Due to this fact, most of the work regarding Long-Lived Transaction
+support in DBMSs is related with locking approaches. In fact, one of
+the main reasons why databases do not cope well with long
+transactions, is that the transaction holds a lock for each accessed
+record. In lock-based DBMSs, the frequency of deadlock goes up with
+the square of the concurrency level and the fourth power of the
+transaction size\cite{gray1981transaction}. Thus, several strategies
+have been devised to minimize the probability of deadlocks on
+Long-Lived Transactions.
+
+\subsubsection{Relaxation of Transactional Properties}
+
+Given that holding the locks for the duration of the transaction was
+not viable, the first proposed solution for this problem was to accept
+a lower degree of consistency, by allowing transactions to release
+their locks before commit.
+
+In \cite{gray1981transaction}, the author proposed a model in which
+only {\it active} transactions (the ones currently updating the
+database) hold locks. {\it Sleeping} transactions (not currently
+updating the database - also known as {\it User think-time}) do not
+hold any locks. This means that the isolation property is broken, due
+to the fact that other transactions will be able to see an uncommitted
+value.
+
+In \cite{salem1989altruistic}, the authors propose an extension to
+Two-Phase locking, called {\it altruistic locking}. This extension
+provides the concurrency control manager with a set of rules that
+allow it to release locks early in the transaction. The altruistic
+protocol takes advantage of the transaction's data access pattern. In
+particular, it takes advantage of the knowledge that a transaction no
+longer needs access to a data object that it has locked. Transactions
+can then issue {\it release} operations, indicating that a certain
+piece of data will no longer be accessed. Other transactions will be
+allowed to concurrently access this data, while agreeing to abide by
+certain restrictions, put in place to ensure that all transactions see
+a consistent database state.
+
+\subsubsection{Transaction Logs}
+
+Another problem with Long-Lived Transactions in DBMSs results from the
+use of a Transaction Log, containing a record of every operation
+performed in the database, so that they can perform crash
+recovery. The problem is that the size of that log is finite, and over
+time, it fills up, thus forcing Long-Lived Transactions to abort, as
+some of their log records will be overwritten by more recent
+transactions.
+
+In \cite{hagmann1991implementing}, the authors propose ``Log Record
+Forwarding'', as a means to relocate log entries belonging to
+Long-Lived Transactions, so that they will not be aborted for that
+reason. In this proposal, active records in the log area are copied
+(forwarded) to the end of the log, thus surviving another
+log-reclaiming cycle.
+
+\subsubsection{Sagas}
+\label{sec:sagas}
+
+Garcia-Molina and K. Salem proposed, in their 1987 paper, the notion
+of sagas \cite{garcia1987sagas}. The basic idea of the saga model is
+to allow a transaction to release resources prior to committing. A
+Long-Lived Transaction is a saga, if it can be seen as a sequence of
+sub-transactions that can be interleaved in any way with other
+transactions. Each sub-transaction in the saga guarantees that the
+ACID properties on the database are preserved.
+
+Partial executions of the saga are undesirable, so the DBMS is
+responsible for guaranteeing that either all transactions in a saga
+are successfully completed, or compensation actions are run to amend
+the partial execution. Thus, each sub-transaction is associated with a
+compensating transaction, which undoes the changes performed by the
+original transaction. Note that this action does not necessarily
+return the database to its original state, but instead acts upon the
+{\it business state} of the application.
+
+More formally, consider a saga $T$, consisting of sub-transactions
+$T_1, T_2, \ldots, T_n$, and compensating actions $CT_1, CT_2, \ldots,
+CT_n$. The system guarantees that either the sequence $T_1, T_2,
+\ldots, T_n$ is executed (meaning the whole saga is executed), or
+$T_1, T_2, \ldots, T_j,CT_j, \ldots, CT_2, CT_1$ for some $0 \le j \le
+n$, will be executed (meaning that a failure occurred at $T_{j+1}$,
+causing the previously executed sub-transactions to be compensated).
+
+\subsubsection{Offline Concurrency Patterns}
+
+Martin Fowler, in his book {\it Patterns of Enterprise Application
+  Architecture} \cite{fowler2003patterns}, introduces a series of {\it
+  Offline Concurrency Patterns}, as the building blocks for Long-Lived
+Transaction support at the application level. In his patterns, Fowler
+assumes that a Long-Lived Transaction is run as a series of
+short-lived system transactions, whose transactional support is
+provided by the underlying DBMS.
+
+The patterns provide a workaround for the fact that the ACID
+properties are broken when using several system transactions.
+
+\begin{itemize}
+\item {\bf Optimistic Offline Lock} This pattern solves the problem by
+  validating that the changes about to be committed by one session (or
+  business transaction) do not conflict with the changes of another
+  session. This is achieved by, in each system transaction commit,
+  validating that the changes about to be committed are consistent,
+  making sure that the value previously read by the current session
+  was not changed by another session (i.e. obtaining an Optimistic
+  Offline Lock).  The most common implementation of this pattern
+  consists on associating a version number with the record in the
+  system. When a record is loaded, the record's version is kept in the
+  session, and that version is used when acquiring the Optimistic
+  Offline Lock (by comparing the two versions). Once the lock is
+  successfully acquired, the record's version is incremented, and the
+  system transaction can be committed. If the lock cannot be acquired,
+  a conflict is detected, the current system transaction is rolled
+  back, and the business transaction must either abort or attempt to
+  resolve the conflict and retry.
+
+\item {\bf Pessimistic Offline Lock} This pattern prevents conflicts
+  by avoiding them altogether. It forces a business transaction to
+  acquire a lock in each record before using it, so once you begin the
+  business transaction, you are mostly sure that it will complete
+  without concurrency control issues. These locks however, are not
+  database-level locks, but are instead high-level, typically managed
+  by a lock manager in the application, and can have various
+  granularities (which will have different impacts on system
+  performance). In this pattern, whenever a business transaction
+  wishes to access a record (for either read or write), it must
+  acquire a lock with the lock manager, ensuring that a business
+  transaction that wishes to write for that particular record is the
+  only one doing so.
+\end{itemize}
+
+Typically {\bf Optimistic Offline Lock}s are used in an environment
+where conflicts are expected to be low. If conflicts are likely, it is
+not good user experience to report a conflict after the user finished
+his work and is ready to commit. In that case, a {\bf Pessimistic
+  Offline Lock} is in order, avoiding throwing away work, because
+conflicts can be detected early in the transaction. Also, if the cost
+of a conflict is too high, no matter its likelihood, this is the
+appropriate pattern.
+
+Although with the use of these patterns the development of Long-Lived
+Transactions is facilitated, they require the programmer to pollute
+the domain by adding code that should be in an infrastructural level.
+
+\subsection{Workflow Management Systems}
+
+A Workflow Process is described as a sequence of connected steps (or
+activities), with special emphasis on the flow paradigm, where each
+step of the process follows the precedent, and ends just before the
+next step can begin.
+
+A Workflow Process typically has a long duration, involves many users
+(in fact, each step is typically executed by a different user), and
+ranges across a variety of heterogeneous systems. Individual
+activities range from computer programs and applications to human
+activities such as meetings and decision making.
+
+In this document I shall use an abstract model to describe Workflow
+Processes, using the following concepts:
+\begin{itemize}
+\item {\bf Process} is a sequence of steps necessary to achieve a
+  goal. A process consists of activities and data.
+\item {\bf Activity} is each step within a process. Activities have a
+  name, pre and post-conditions, and a series of constraints.
+\item {\bf Control Flow} is the order in which activities are
+  executed.
+\item {\bf Data Flow} is the mapping between the inputs/outputs of the
+  data required by the activities.
+\item {\bf Conditions} specify the circumstances in which certain
+  events will happen. {\it Transition Conditions} specify whether a
+  certain activity may or may not start. {\it Start Conditions}
+  specify when an activity is actually started, either by all its
+  triggering events (AND) or by just one (OR). {\it Exit Conditions}
+  specify whether an activity has finished successfully.
+\end{itemize}
+In this model, an activity with no incoming activities is considered a
+{\it Start Activity}. A process is considered finished once all its
+activities are terminated.
+
+Over the years, many Workflow Modelling Languages have been devised,
+and in fact, it is still a very active area of research. Examples of
+such languages are YAWL \cite{van2005yawl}, AWGL
+\cite{fahringer2005specification}, UEML \cite{vernadat2002ueml} among
+many others.
+
+In \cite{sheth1993transactional}, the term {\it Transactional
+  Workflow} was introduced, recognizing the relevance of transactions
+to workflows. Transactional Workflows provide functionality required
+by each workflow process (such as task collaboration), which is
+usually not available in typical DBMSs. This however, does not imply
+that workflows are similar to database transactions, nor that they
+support all the ACID properties (namely concurrency control, backward
+recovery and data consistency).
+
+Workflow Management Systems (WFMSs) are the systems that manage
+user-defined Workflow processes for different types of jobs and
+processes. It is the WFMS that provides the transactional properties
+to the transactional workflow. These include transaction management
+techniques such as logging, compensation, etc.
+
+Given that their support for recovery and failure handling is lacking,
+unlike regular transaction systems, they typically provide the means
+for the user to determine the actions necessary to recover from
+failure and consistency issues.
+
+\subsubsection{Implementing Transactional Workflows}
+
+In \cite{dayal1990organizing}, a workflow is seen as a {\it
+  Long-Running Activity}, and is modeled as a set of execution units
+that may consist recursively of other activities, or top-level
+transactions. Control and data flow is specified either statically in
+the activity's {\it script}, or dynamically using
+Event-Condition-Action (ECA) rules. This model contemplates
+compensation, execution unit communication, activity status queries
+and exception handling.
+
+In \cite{weikum1993extending}, the author suggests that semantic
+transaction concepts be merged with workflow concepts to promote
+consistent and reliable workflow systems. The author defines a
+transactional workflow to be a control sphere that binds these
+transactions, using dependencies to enforce as much behavioral
+consistency as possible.
+
+For a more comprehensive review on the topic, refer to
+\cite{worah1997transactions}.
+
+\subsubsection{Sagas}
+
+The concept of Sagas was previously presented in
+Section~\ref{sec:sagas}. In this section, I show how sagas can be
+implemented on top of Workflow Management Systems.
+
+All the sub-transactions of the saga are grouped into a block (Forward
+Block). The control flow within the block represents that of the saga,
+with each sub-transaction represented as an activity. Every activity
+has an incoming transition condition, which is that the previous
+activity has finished successfully (i.e. the corresponding transaction
+has committed).
+
+If a transaction aborts, the corresponding outgoing condition will
+evaluate to false, and no other activity in the block will
+execute. When execution of the block terminates, its data container
+will contain a list of the status of each activity. In this case,
+control is passed to a second block (Compensation Block), containing
+the compensating activities in reverse order.
+
+When the compensation block is executed, all the conditions that
+correspond to activities that executed in the Forward Block are
+activated, causing the compensating activities to be executed in
+order.
+
+\subsubsection{Implementing Long-Lived Transactions using WFMSs}
+
+As described in the previous sections, several attempts have been made
+to implement Advanced Transaction Models on top of Workflow Systems,
+as a means of supporting Long-Lived Transactions.
+
+Several other methods have been proposed in the
+literature\cite{798492, alonso1996advanced}. However, such
+implementations are not suitable for the requirements defined in
+Section~\ref{sec:what}, due to the fact that most WFMSs do not provide
+full ACID properties.
+
+\subsection{Object/Relational Mapping}
+\label{sec:orm}
+
+Due to the increase in popularity of object-oriented programming, a
+large number of Object/Relational Mapping (ORM) tools have arisen over
+the past few years\cite{orm}. These tools range from simple data
+access layer abstractions (which simply abstract the necessary
+instructions to perform the desired operation), to fully fledged
+tools, which handle every aspect of the Object/Relational Mapping,
+making the underlying database completely transparent to the
+programmer.
+
+Object/Relational Mapping tools are available for a great number of
+languages. For Java, there are two competing persistence standards:
+Java Persistence API (JPA) and Java Data Objects (JDO). Both
+specifications allow a programmer to create domain entities by
+decorating Plain Old Java Objects (POJOs) with annotations, making the
+persistence layer transparent to the programmer. Whereas JDO provides
+a larger number of features than JPA, the latter has seen greater
+adoption by the community, both in terms of usage and support.
+
+The most well-known implementations of the JPA are Hibernate,
+DataNucleus, OpenJPA and EclipseLink. Other ORM tools include
+DatabaseObjects (.NET), NHibernate (Hibernate for .NET), CoreData
+(Objective-C), CodeIgniter (PHP) and Django (Python).
+
+To provide transactional support for domain objects, ORMs typically
+delegate transaction management to the underlying Database (which is
+assumed to provide full ACID support). In fact, as of this writing,
+all the examples shown above operate this way. Thus, Long-Lived
+Transaction support in ORM tools is largely dependent on the
+underlying DBMS, presenting the same challenges as described in
+\ref{sec:rdbms}.
+
+Given the popularity of Java, I will now consider the JPA, and one of
+its most popular implementations, Hibernate, to understand how they
+cope with Long Lived Transactions. Note that despite the concreteness
+of the examples presented, their concepts are generic enough to be
+applied to any other ORM tool.
+
+\subsubsection{JPA Optimistic Concurrency Control}
+
+The specification of the Java Persistence API assumes the use of
+optimistic concurrency control (or optimistic locking). In this
+context, optimistic locking is used to prevent the database from
+holding on to critical resources, potentially causing high degrees of
+contention.  This is achieved by operating directly on the domain
+objects (in memory), delaying the propagation of the changes to the
+database as much as possible.
+
+As part of the JPA, there is the concept of Version field. This field
+allows {\it disconnected operation}, meaning that the reads/writes
+from the database are deferred until a checkpoint or the end of
+transaction. When using this optimistic approach, all the versions of
+the objects used in the transaction are checked against the version
+present in the database, thus ensuring that no dirty reads will occur.
+
+\subsubsection{Hibernate Long Conversations}
+
+Hibernate supports the concept of {\it Long Conversations} by allowing
+a session\footnote{A Hibernate session implements the Unit of Work
+  design pattern \cite{fowler2003patterns}.} to remain open as long as
+the user interaction lasts, potentially executing multiple database
+transactions. However, the programmer is responsible for ensuring the
+atomicity and isolation of the business transaction, by following a
+very strict pattern: all transactions but the last must only read
+data, only the last database transaction can update data. Hibernate
+assists the programmer in verifying that the data read across the
+multiple transactions is consistent, using an object versioning
+mechanism. However, this verification only works if all the data
+required for the application is read within the first database
+transaction.
+
+This support is not good enough for several reasons:
+
+\begin{itemize}
+\item It imposes a pattern that may not be suited for many
+  applications.
+\item All the state of the transaction is kept in memory, which may
+  cause the application to run out of memory in very large
+  transactions.
+\item The session is not kept persistent. If the application server
+  restarts in the middle of the transaction, all data is lost.
+\item Despite the versioning support, this system only supports the
+  ``Repeatable Read'' isolation level (see
+  \ref{sec:isolation}). Suppose that a database transaction other than
+  the first (T2) reads an object that was changed concurrently (by T3)
+  between the first transaction and T2. T2 will read the value written
+  by T3, and the Long Transaction is not serializable.
+\end{itemize}
+
+All of these reasons violate the desired properties described in
+\ref{sec:difficult}, making this system undesirable.
+
+\subsection{Software Transactional Memories}
+\label{sec:stm}
+
+Given that the solution I propose in Section \ref{sec:arch} is built
+upon a Software Transactional Memory (STM), a brief introduction to
+the topic is in order.
+
+The original idea behind Transactional Memories (TM) is to provide
+efficient lock-free data structures for highly concurrent systems
+\cite{herlihy1993transactional} using hardware. Its main goal was to
+free programmers from using locks and monitors to manage concurrent
+accesses to shared data. Managing lock granularity and composability
+is a cumbersome and error-prone task, and may lead to unwanted
+situations such as deadlocks. Over the years, the original concept of
+Hardware Transactional Memories has evolved, giving birth to Software
+Transactional Memories.
+
+Software Transactional Memories bring into the realm of programming
+languages, the age-old notion of transactions, well-known in the area
+of DBMSs. However, unlike those, STMs are not concerned with the
+Durability property of the ACID model, and thus, many STM
+implementations have little in common with their database
+counterparts.
+
+There have been several recent proposals for STM implementations, such
+as those described in \cite{cachopo2006versioned, herlihy2003software,
+  marathe2005adaptive, dice2006transactional, riegel2006lazy,
+  marathe2006lowering}.
+
+STMs use transactions to isolate memory operations in atomic Units of
+Work. A transaction typically contains a Read Set and Write Set, used
+to register its read and write operations, respectively. The STM
+provides a series of mutable memory locations that can be read from or
+written to. In many STMs, it is up to the programmer to confine all of
+the application's mutable state to these memory locations, whereas
+some STMs provide fully transactional memory. It is the responsibility
+of the STM to guarantee that concurrent accesses to such memory
+locations are correct according to the specified correctness criteria.
+
+\subsubsection{Correctness Criteria}
+
+In Section~\ref{sec:isolation}, I presented the typical isolation
+levels (or correctness criteria) that can be found in DBMS. In
+\cite{guerraoui2008correctness}, the author claims that the {\it
+  traditional} correctness criteria are unfit for TM implementations,
+and proposes the {\it opacity} criterion. Opacity is described as a
+safety property that ensures that ``[...] (1) all operations performed
+by every {\it committed} transaction appear as if they happened at
+some single, indivisible point during the transaction lifetime, (2) no
+operation performed by any {\it aborted} transaction is ever visible
+to other transactions (including live ones), and (3) every transaction
+always observes a {\it consistent} state of the system.'', meaning
+that unlike Serializability, even {\it non-committed} transactions are
+prevented from accessing inconsistent states. This correctness
+criteria is ensured by many TM systems.
+
+\subsection{Nested Transactions}
+
+The best practices in software development encourage programmers to
+modularize their applications and have them abide by well-defined
+interfaces. Lock-based approaches do not cope well with this
+principle, because the programmer must be aware of module's internal
+locking conventions. Transactions, on the other hand, do not have this
+limitation, allowing for better composability.
+
+In the transaction paradigm, it would then be common for application
+code to make a call to a library which uses transactions to protect
+its shared internal state. In this scenario, the transaction created
+by library would be {\it nested} in the outer (application-``owned'')
+transaction. Nested Transactions are an extension to the basic
+transaction structure, supporting multiple levels of transactions:
+transactions that may contain other sub-transactions, forming a
+transaction tree. Nested Transactions have been long used in the
+database world, and many of its concepts have been adapted to
+transactional memories \cite{worah1997transactions}.
+
+Consider the kind of monolithic transactions commonly found in
+enterprise applications. In such transactions, the volume of work that
+must be done if the transaction needs to be rolled-back is
+increased. Using nested transactions, smaller portions of the work can
+be done in isolation, each within a nested transaction. If one of
+those portions fails, only that portion needs to be rolled-back, and
+an attempt can be made to compensate for that failure. Similarly,
+clients of opaque libraries may suffer performance hits if the
+transaction fails because of the work performed in said libraries.
+
+In \cite{moss2006nested}, Moss and Hosking defined two types of
+nesting: Closed and Open.
+
+\subsubsection{Closed Nesting}
+
+A transaction is either {\it top-level}, which is similar to a
+non-nested transaction, or is nested within a {\it parent}
+transaction. In this model, only transactions with no current children
+can access data. Transactions accumulate Read and Write sets, which
+will determine the outcome of the transaction. When a transaction
+reads a value, it sees either the value in its own read or write set,
+or the value seen by its parent (a top-level transaction sees the
+latest value).
+
+When a nested transaction commits, its read and write sets are merged
+with the ones of its parent. It is only when the top-level transaction
+commits that its writes become permanent. If the nested transaction
+aborts, its read and write sets are discarded.
+
+\subsubsection{Open Nesting}
+
+Open Nested Transactions relax the isolation requirements by making
+the results of committed sub-transactions visible to other
+concurrently running transactions. When a sub-transaction commits,
+instead of merging the write set with its parent's, the writes are
+committed at the top-level. This way, a higher degree of concurrency
+is achieved, because resources may be released earlier and conflict
+detection can be applied at a higher level. It is up to the
+implementations to provide the mechanisms to handle recording of
+necessary compensating actions in case an ancestor transaction aborts.
+
+\subsubsection{Nested and Long-Lived Transactions}
+
+Nested Transactions present many similarities with Long-Lived
+Transactions. In both cases there is a top-level transaction, which
+can be divided in several smaller steps. Open nesting uses the same
+basic principle as the techniques described in previous sections,
+based on the relaxation of transactional properties, and compensating
+actions. Closed Nesting is similar to the desired properties presented
+in Section~\ref{sec:what}.
+
+\subsection{Persistent STMs}
+\label{sec:pstm}
+
+Over the years, Enterprise Application architecture has evolved at a
+very fast pace. However, one aspect has remained constant: they still
+rely on a relational database to handle both data persistence and
+transactional support. In \cite{fernandes2011strict}, the authors
+argue that such design, while once justified by hardware limitations,
+is no longer suited for today modern applications.
+
+A new architecture was proposed, using a Software Transactional Memory
+for transaction support at the application server tier, shifting the
+responsibility from the DBMS to the application server. The database
+still plays an important role in this architecture, due to the fact
+that the STM must be extended to support persistence (PSTMs).
+
+By shifting the responsibility for transaction handling to the STM,
+enterprise applications can benefit from the many advancements in the
+STM area, such as multi-core machine scaling, stronger correctness
+guarantees and nonblocking progress conditions such as lock freedom
+\cite{fernandes2011lock}.
+
+Using a PSTM, enterprise application developers no longer have to
+trade correctness for performance. Modern PSTM implementations allow
+for Strict Serializability, while providing better performance than
+regular DBMSs, yielding a throughput increase of up to 23 times
+\cite{fernandes2011strict}.
+
+Another advantage of PSTMs is that, like in STMs, the programmer
+benefits from a much simpler and transparent programming model,
+allowing for much cleaner and maintainable code, better composability
+by using lock-free data structures, making the process of translating
+business requirements to code much simpler and bug-free.
+
+In this project, I aim at extending the PSTM model, by adding the
+necessary building blocks to support Long-Lived Transactions
+(described in Section~\ref{sec:arch}).
+
+\subsection{Why those solutions are unfit}
+
+Among all the solutions presented above, one common aspect stands out:
+they all require the programmer to deal with Long-Lived Transactions
+at the application level, which goes against my claim that support
+should be transparent, and at an infrastructural level.
+
+Some of the presented solutions are based on relaxation of
+transactional properties, such as allowing breaches in
+isolation. Long-Lived Transactions should run with the same
+transactional properties as regular transactions, and thus, relaxation
+is not acceptable.
+
+Despite the similarities between Workflow Processes and Long-Lived
+Transactions, WFMSs are not suited for our requirements. Typical WFMSs
+are not concerned with the ACID properties of transactions, and rely
+heavily on high-level compensatory actions for data consistency.
+
+The solution proposed in Section~\ref{sec:orm} (Hibernate) imposes a
+very strict programming model, that may not be adequate for some
+applications, and does not guarantee that Long-Lived Transactions will
+have the same transactional properties as regular transactions.
+
+None of the proposed solutions fit the requirements specified in
+Section 2, and thus, a new approach is needed.
+
+\section{Solution Architecture}
+\label{sec:arch}
+
+In this section I will describe the architecture of my proposed
+solution, as well as a small introduction to the Fenix Framework
+\cite{fernandes2011strict}, in which it will be implemented.
+
+\subsection{Transactional Contexts}
+
+The main goal of this solution is to relieve programmers of the burden
+of dealing with Long-Lived Transactions, making the effort needed to
+program one similar to the effort of programming a regular
+transaction. So, what does the single interaction scenario has that
+makes it so easy to program? It has a single transactional context
+that spans the whole operation (provided by the database transaction,
+given that they have the same lifespan). In the second scenario the
+database transaction was shorter than the whole operation, so the
+context was lost in each step.
+
+The main concept of the proposed architecture is then the {\bf
+  Transactional Context}. It is represented as a first-class domain
+entity in our rich domain model, making it persistent (unlike the
+context provided by a single database transaction) and
+transactional. With this persistent context, the programmer no longer
+needs to rely on the database to provide the transactional semantics
+of the operation.
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+
+    \begin{class}[text width=4cm]{TransactionalContext}{0,0}
+    \end{class}
+
+    \begin{class}[text width=1.2cm,minimum height=5em]{Log}{4,-2}
+    \end{class}
+
+    \begin{class}[text width=3cm]{DomainObject}{8,0}
+    \end{class}
+
+    \draw [umlcd style school] (TransactionalContext) |-
+    node[below]{Read Set} (Log) node[near start, left]{1} node[near
+    end, below]{*};
+
+    \draw [umlcd style school] (TransactionalContext) --
+    node[right]{Write Set} (Log) node[near start, above]{1} node[near
+    end, right]{*};
+
+    \draw [umlcd style school] (DomainObject) -- node[left]{Object}
+    (Log) node[near start, above]{1} node[near end, left]{*};
+
+    \draw [umlcd style school] (DomainObject) |- node[below]{Value}
+    (Log) node[near start, right]{1} node[near end, below]{1};
+
+  \end{tikzpicture}
+
+  \caption{Transactional Context}
+  \label{fig:transactionalContext}
+
+\end{figure}
+
+Figure~\ref{fig:transactionalContext} presents the conceptual model of
+the Transactional Context. Because it is a first-class entity, it can
+be manipulated just like any other domain object. Its purpose is to
+keep all the changes made to the domain objects during the
+transaction, keeping those changes isolated from code executing
+outside this context.
+
+The Transactional Context has two sets of {\bf Log}s representing both
+the read set and the write set of the transaction. A Log contains a
+reference to the original object it refers to, and a
+Transactional-Local copy of the value of the object. In case of a Log
+for a read operation, the value is a snapshot of the object when it
+was first read. In the Log for a write operation, the log will retain
+the value being written.
+
+Any read operation will read the value stored in the Log for that
+particular object (whether it has been modified outside the context or
+not), or create a new Log entry if it is the first time the object is
+being accessed. A write operation will behave similarly, writing the
+new value to the corresponding Log entry. It is important to note that
+there is at most one Log entry per object.
+
+Collaboration from the methods that get/set values of the domain
+objects is required, because those methods must be aware of the
+presence of the transactional context. Depending on whether the method
+performs a read or write operation, it must access the corresponding
+Log of the current context to read/modify the snapshot/copy of the
+object's attributes.
+
+Transactional contexts can be either aborted or committed. Aborting a
+transactional context simply discards all associated Log entries,
+whereas committing atomically merges the Write Set with the
+domain. This operation must obey to the same consistency rules as any
+regular transaction: all objects in both sets must be in a consistent
+state with the objects outside the context.
+
+\subsection{Fenix Framework}
+
+The Fenix Framework \cite{fernandes2011strict} is an implementation of
+the Persistent STM architecture described in Section~\ref{sec:pstm},
+using a Domain-Specific Language - Domain Modelling Language (DML)
+\cite{cachopo2007development} - to describe the application's rich
+domain model. The Framework was initially developed as part of the
+FenixEDU\footnote{FenixEDU - https://fenix-ashes.ist.utl.pt/} web
+application. In 2008, the framework was extracted from the
+application's code base, into a standalone Java framework to develop
+applications that require a transactional and persistent domain model.
+
+In the Fenix Framework, the programmer describes the domain model of
+the application using the DML, and the Framework is responsible for
+generating an empty class for each entity in the domain, as well as
+the infrastructural code needed to transparently handle object
+persistence.
+
+Transactional support is guaranteed by the JVSTM
+\cite{cachopo2006versioned}, a multi-version STM. The STM is based
+upon the concept of versioned boxes, which keep a history of the
+values of the application's shared mutable state. It was designed to
+operate in environments with a high read/write ratio, so, unlike other
+STMs, read-only transactions never conflict with any other concurrent
+transaction (due to the fact that every read will read the version
+that was committed when the transaction started).
+
+The properties (slots and relations) of the Domain Objects are backed
+by the STM, and thus the objects can be transactionally accessed. Once
+a change to a Domain Object's property is made, the change is
+intercepted, and, in commit-time, propagated to the DBMS. For more
+details on the Framework's implementation, see
+\cite{fernandes2011strict}.
+
+As of the writing of this document, the Framework is undergoing a
+major refactoring, in an attempt to separate the Framework's core
+(DML, code generation, programmer API), from the specific Transaction
+Manager and Persistence Backend. This modular architecture allows the
+Framework to work on top of a variety of databases: none (data is not
+kept persistently - useful for Unit testing), Relational Databases,
+NoSQL databases, Key-Value stores, etc. It also allows for modules,
+which can contribute with their own domain, to be plugged into the
+Framework, to extend its functionalities. One such example is a module
+that contains an implementation of persistent B+
+Trees.\footnote{http://en.wikipedia.org/wiki/B+\_tree}
+
+Given the number of possible persistence backends, support for
+Long-Lived Transactions will be implemented as a module depending on
+the JVSTM for transaction management, with no dependencies on any
+persistence backend. This allows for a greater number of developers to
+benefit from Long-Lived Transactions in the Fenix Framework,
+regardless of the backend they are using.
+
+\subsection{Programming Model}
+
+I previously presented the concept of Transactional Context as the
+basic building block for Long-Lived Transactions. However, useful as
+they may be, Transactional Contexts are not business operations.
+
+The main idea is that every business operation that has transactional
+requirements should execute within a transactional context. But due to
+the fact that the operation may have several steps, we must keep track
+of Transactional Context, so it is used in all steps of the operation.
+
+Given that manually keeping track of the context can be cumbersome,
+and should be done transparently, a new concept is introduced: {\bf
+  Transactional Business Operation} (TBO). As shown in
+Figure~\ref{fig:TBO}, a TBO not only is a first-class entity that
+represents a particular business operation, but also holds its
+transactional context. The TBO is then responsible for
+\begin{inparaenum}[\itshape 1\upshape)]
+\item managing the life-cycle of the Transactional Context, and
+\item ensuring that the several steps of the operation execute within
+  the operation's context.
+\end{inparaenum}
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+
+\begin{abstractclass}[text width=6cm]{TransactionalBusinessOperation}{0,0}
+  \operation{end() : void} \operation{abort() : void}
+\end{abstractclass}
+
+\begin{class}[text width=4cm]{TransactionalContext}{7,-0.7}
+\end{class}
+
+\association{TransactionalBusinessOperation}{}{}{TransactionalContext}{1}{}
+
+\end{tikzpicture}
+
+\caption{Transactional Business Operation}
+\label{fig:TBO}
+
+\end{figure}
+
+\subsubsection{Instantiating a new TBO}
+
+Instantiating a TBO will also instantiate its associated transactional
+context. For a method to execute within the context associated to the
+TBO, the programmer must simply annotate the method with the @Step
+annotation. This will ensure that any invocations of the method will
+execute within the context of that
+operation. Listing~\ref{lst:tcMethod} shows the pseudo-code that will
+be injected in the methods to ensure this property. The methods
+getCurrentTC() and setCurrentTC() allow access and modification of the
+current transactional context, which may be stored in a thread-local
+variable.
+
+\lstset{language=Java, frame=single, caption={Code to ensure each step
+    runs within the operation's transactional context},
+  label={lst:tcMethod}}
+\begin{lstlisting}[float]
+TransactionalContext savedContext = getCurrentTC();
+try {
+  setCurrentTC(this.getContext());
+  // invoke step i of this operation
+  if(isLast) {
+    end();
+  }
+} finally {
+  setCurrentTC(savedContext);
+}
+\end{lstlisting}
+
+\subsubsection{Getting the reference to a TBO}
+
+Given that the TBO is modelled as a first class domain entity, it can
+be directly associated with its logical owner (e.g. the user who
+created it, the department it belongs to, etc).
+
+Getting a reference to the TBO between its various steps (recall that
+the application may be restarted, losing all session data) may be as
+simple as asking the user to select a pending operation from the list
+of operations associated to that user. The framework is flexible
+enough to allow for a great number of ways to implement this step.
+
+\subsubsection{Ending the Operation}
+
+There are three ways for a TBO to finish:
+\begin{enumerate}
+\item By invoking the abort() method of the TBO, which will explicitly
+  discard the modifications performed in the context of this
+  operation, delete the transactional context, and lastly, the TBO
+  itself.
+
+\item By invoking the end() method of the TBO, which will attempt to
+  commit the modifications performed by the operation. In case the
+  operation cannot be committed, an exception is thrown. If the commit
+  is successful, both the TBO and its context are deleted.
+
+\item By invoking a method annotated with @Step, with the {\it last}
+  parameter set to {\it true}. This method allows the programmer to
+  define a last step, which will automatically commit the operation
+  once invoked. The semantics of committing in this case is similar to
+  the one provided by calling end(). This is the preferable way of
+  ending a TBO, because, in my opinion, it is the most natural to the
+  programmer.
+\end{enumerate}
+
+\subsection{Revisiting the Example}
+
+In this section I briefly present a modelling of the example
+introduced in section~\ref{sec:what}, using the proposed architecture.
+
+The architecture includes the concept of TBO, so a {\bf
+  CourseCreationOperation} is created. This class extends {\bf
+  TransactionalBusinessOperation}, and is associated with the course
+being created (which is only visible within the context of the
+operation until it commits) and the department for which the course is
+being created.
+
+An implementation of the {\bf CourseCreationOperation} class is
+presented in Listing~\ref{lst:courseTBO}. Each step of the user
+interaction is implemented in a single method, annotated with
+@Step. Because defining the bibliography is the last step of the
+operation, {\it setBibliography()} is annotated with {\it last =
+  true}, meaning that after its invocation, the operation will attempt
+to commit, making the new course visible to every other user in the
+system.
+
+\lstset{language=Java,frame=single,caption={Code for the
+    CourseCreationOperation class}, label={lst:courseTBO}}
+\begin{lstlisting}[float]
+public class CourseCreationOperation 
+       extends TransactionalBusinessOperation {    
+
+  @Step
+  public void makeNewCourse(Department department,
+                            String courseName) {
+    this.setDepartment(department);
+    this.setNewCourse(new Course(department));
+    this.getNewCourse().setCourseName(courseName);
+  }
+
+  @Step
+  public void setObjectives(String objectives,
+                            int credits) {
+    this.getNewCourse().setObjectives(objectives);
+    this.getNewCourse().setCredits(credits);
+  }
+
+  @Step(last = true)
+  public void setBibliography
+              (Publication[] bibliography) {
+    this.getNewCourse().setBibliography(bibliography);
+  }
+}
+\end{lstlisting}
+
+\subsection{Conflict Handling}
+
+Even in short transactions, the probability of conflicts is directly
+proportional to the number of records accessed during the
+transaction. This issue is aggravated when dealing with Long-Lived
+Transactions, because the size of the Read Set and the Write Set tend
+to be larger than with short transactions.
+
+Most of the time, not much work is lost if a short transaction aborts,
+and it is relatively simple to automatically restart the transaction
+without requiring user intervention. With Long-Lived Transactions,
+specially those involving user input, automatic restarting techniques
+cannot be applied.
+
+Much work can be lost when a long transaction aborts, and it is not
+acceptable to ask the user to input everything again. Conflict
+management is usually split into three areas:
+
+\begin{itemize}
+
+\item {\bf Prevention} Avoiding situations that would cause a
+  conflict. This could be accomplished by restricting the actions
+  available to long business operations and warning the users of
+  potentially conflicting actions (before they are executed).
+
+\item {\bf Detection} Awareness that the current transaction's state
+  is inconsistent and cannot be committed. In short transactions, it
+  is usually simple to restart the transaction once a conflict is
+  detected. In long transactions, not being able to commit can entail
+  a big penalty. It is important to detect the reason preventing the
+  transaction from committing, pinpointing the cause of the problem.
+
+\item {\bf Recovery} Recovering from a conflict after its
+  detection. With detailed information regarding the cause of the
+  conflict, recovery can be attempted by asking the user to
+  re-introduce only the data that caused the conflict, hopefully
+  solving it.
+
+\end{itemize}
+
+Performing conflict management in a domain-dependent manner can
+present itself as a major challenge. However, it may be necessary when
+dealing with Long-Lived Transactions.
+
+Implementing a mechanism to provide domain-dependent conflict
+management requires a big effort, and is out of the scope of this
+work. However, given the time, I shall look for ways to aid
+programmers with this issue.
+
+\section{Evaluation}
+
+To evaluate this work, I will measure the effort required to implement
+a long business transaction, comparing the currently available tools
+against the implementation of my proposed architecture.
+
+I will also measure the effort required to refactor existing code, to
+use this new solution, by selecting a functionality in the FenixEDU
+web application, and refactoring it.
+
+An implementation of the example presented in Section~\ref{sec:what}
+will be devised, both using the current and the new architecture. With
+those two implementations, I shall measure the performance hit of my
+new solution.
+
+\section{Conclusion}
+
+Many enterprise applications have requirements involving operations
+that may span very long periods of time. Yet, most applications use
+persistence layers that do not cope well with Long-Lived Transactions.
+
+Thus, many programmers have found clever ways to implement their
+requirements using the tools at their disposal. I presented several of
+those implementations: keeping the context in the user's session,
+changing the domain to contain state information, application-level
+locks, application-level consistency checks, etc.
+
+In this document, I proposed an architecture that allows programmers
+to declare long running operations at an infrastructural level, using
+the same tools as before, without sacrificing consistency and without
+polluting the domain.
+
+The primary goal of this work is to implement the proposed
+architecture within the Fenix Framework, and ultimately, its
+application in the Fenix web application, making Long-Lived
+Transactions easier to develop.
+
+\clearpage \bibliography{thesis.bib} \bibliographystyle{plain}
+\end{document}
