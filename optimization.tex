@@ -1,3 +1,32 @@
 \chapter{Optimization}
 
-Optimization
+As shown in Chapter \ref{chap:validation}, the initial implementation,
+while functional, presented very poor performance results. This
+chapter describes the optimizations applied to the implementation,
+resulting in remarkable practical results.
+
+\section{Annotations}
+
+Is this worth mentioning?
+
+\section{Read-Set differentiation}
+
+In the implementation described in Chapter \ref{chap:solution}, both
+the Write-Set and the Read-Set were represented using {\it LogEntries}.
+
+Recalling Figure \ref{fig:architecture}, {\it LogEntries} store a
+reference to the respective DomainObject, the object's slot, and the
+slot's value. These objects were used to store elements of both the
+Read-Set and the Write-Set, which proved to be quite expensive, as the
+Read-Set only cares about which slots were read, completely
+disregarding its value.
+
+As such, 
+
+
+\section{Using BPlusTrees to hold LogEntries}
+
+\section{Removing LogEntries}
+
+\section{Fine tuning WriteSet}
+
