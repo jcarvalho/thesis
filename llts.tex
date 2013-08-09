@@ -1,3 +1,291 @@
 \chapter{Long-Lived Transactions}
 
-What they are
+\section{What are Long-Lived Transactions?}
+\label{sec:what}
+
+As previously described, Long-Lived Transactions are transactions with
+a lifetime larger than a typical database transaction. To better
+understand this concept, consider the example shown in
+Figure~\ref{fig:courseDomain}, corresponding to a simplified fragment
+of the domain model for an application in the higher education domain.
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+
+\begin{class}[text width=4.5cm]{Course}{0.5,0}
+  \attribute{name : String} \attribute{objectives : String}
+  \attribute{credits : int} \attribute{bibliography : Publication[]}
+\end{class}
+
+\begin{class}[text width=3cm]{Department}{7.5,-0.85}
+\end{class}
+
+\association{Department}{}{1}{Course}{}{*}
+
+\end{tikzpicture}
+
+\caption{Sample Domain Model in UML}
+\label{fig:courseDomain}
+
+\end{figure}
+
+In this simplified domain model, a course belongs to a department, has
+a name, its objectives, the credits granted upon completion, and the
+recommended bibliography. The domain is deemed to be consistent only
+if all attributes of course have a defined value, and each course must
+have a department. Each department is responsible for managing its
+courses, meaning that it is up to someone who works in the department
+to start the process of creating new courses.
+
+Note that the creation of a new course should be executed
+transactionally, because other users of the system should not be able
+to see a course in an inconsistent state (either not connected to any
+departement and/or without all attributes properly defined).
+
+The pseudo-code in Listing~\ref{fig:courseCreation} implements the
+business operation of creating a new course. Assume that {\bf
+  department} is inferred from the user performing the operation.
+
+\lstset{language=Java, basicstyle=\ttfamily, stepnumber=2,
+  numbersep=9pt, tabsize=4, frame=single, caption={Pseudo-Code for the
+    creation of a new course. A new Course is created, associated with
+    its department, and its attributes are filled.},
+  label={fig:courseCreation}, captionpos=b}
+\begin{lstlisting}[float]
+Course course = new Course();
+department.addCourse(course);
+course.setName(name);
+course.setObjectives(objectives);
+course.setCredits(credits);
+course.setBibliography(bibliography);
+\end{lstlisting}
+
+There are several ways to implement this operation. I will now
+describe two common scenarios for said implementation.
+
+\subsection{Business Transaction in a single interaction}
+
+A possible implementation (most likely, the simplest) of the course
+creation operation in a web application is to have a single page in
+which the user provides all the required information. Once the
+information is submitted, a new Course is created, associated with the
+department of the person performing the operation, and all its
+attributes are filled according to the information submitted by the
+user. The new object is then stored in the database, making it
+persistent and available for other users to view.
+
+In this scenario, in which all the information can be provided in a
+single user interaction, the transactional guarantees of the operation
+are ensured by the underlying database (which is assumed to provide
+the classic transactional semantics \cite{gray1981transaction}),
+because the whole operation can be performed within the scope of a
+single database transaction.
+
+An important consequence of implementing the operation in a single
+database transaction is that the programmer can manipulate all the
+domain objects involved directly. The order in which the modifications
+to the objects are performed is irrelevant, as long as the domain is
+consistent when the transaction is committed. This is the semantics
+typically expected by a programmer of such applications: there may be
+instants in which some domain objects are in an inconsistent state
+(e.g. before defining the course's bibliography), but this
+inconsistent state will never be seen by the other users of the
+application. Those users will see the fully created object only when
+the operation is committed.
+
+\subsection{Business Transaction across multiple interactions}
+
+The model described in the previous scenario, whereas simple and easy
+to implement, may not be suited for every situation. Imagine that
+instead of four attributes, Course had 50 attributes. It would then be
+unfeasible to ask the user to fill everything out in a single web
+page. So, the logical solution would be to split the various
+attributes in multiple pages, accounting for multiple user
+interactions.
+
+Let us now assume that the creation of a course is made throughout
+three interactions. In the first interaction, the user selects the
+course's name, in the second interaction, the user introduces the
+objectives and credits, and in the final interaction, the user selects
+the bibliography, thus creating the course.
+
+At first glance, it would seem quite easy for a programmer to change
+the logic programmed in the first scenario to meet the new
+requirements: the programmer would simply have to split the code
+performed in a single request into three smaller parts, each to be
+executed in one request.
+
+Yet, having three separate requests implies having three different
+database transactions, breaking the atomicity and isolation of the
+operation. After handling the first request, the persisted domain
+would be in an inconsistent state (a course with no attributes other
+than its name).
+
+The implementation of the business logic must then take this issue
+into account, because the programmer cannot write the updates directly
+on the domain.
+
+This scenario represents what was defined as a Long-Lived Transaction,
+in which the Business Operation has a larger lifetime that a single
+database transaction (in this particular case, three database
+transactions).
+
+\section{Why are they difficult to implement?}
+\label{sec:difficult}
+
+In this multiple interaction scenario, the programmer must take
+special care when implementing the operation. As mentioned above, we
+cannot simply split the code used in the first scenario.
+
+The programmer has several choices for the implementation:
+
+\begin{enumerate}
+\item Keep a database transaction open during all the steps of the
+  operation.
+
+\item Create a parallel representation of the objects that are being
+  manipulated, store them outside the domain and apply the changes
+  only in the last interaction.
+
+\item Change the domain model, to represent the consistency state of
+  the objects being manipulated. This affects the code that operates
+  on that portion of the domain, because it must filter out objects
+  that are still in an inconsistent state.
+\end{enumerate}
+
+It should be clear that any of those solutions is far from trivial to
+implement, has some serious consequences (presented below), and, as I
+will demonstrate, is an unnecessary burden to the programmer.
+
+\subsection{Keeping a database transaction open}
+
+Given that atomicity and isolation are broken due to the fact that
+each interaction with the user is done within its own database
+transaction, we could think the solution would be to keep the database
+transaction open during the whole business transaction.
+
+However, most modern Relational Database Management Systems (RDBMSs)
+do not cope well with transactions that are open for arbitrarily large
+periods of time, because a long lived database transaction may limit
+concurrency, cause timeouts and deadlocks or starve the database's
+connection pool. All these factors contribute to making this approach
+highly undesirable, making the programmer seek alternative approaches.
+
+\subsection{Parallel Representation of the domain}
+
+In this approach, a series of objects similar to the domain objects
+are created, and must be managed manually, kept in the user's session
+context, outside the domain.
+
+As the complexity of the domain, and the number of objects manipulated
+by the operation, grow, it becomes harder for the programmer to
+manually manage the data that must be kept. Ultimately, there is a
+copy of the whole domain stored in the user's session, waiting for the
+last transaction to transactionally update the domain with all the
+information input by the user.
+
+This is the opposite of what would be desirable for the programmer:
+she should be able to operate directly on the domain.
+
+\subsection{Changing the domain model}
+
+Now imagine that an additional requirement is added to the system: the
+user may be allowed to log off in the middle of the process, and, upon
+logging back in, continue the work where she left off. Additionally,
+anyone else in the user's department should be able to pick up where
+the original user left off. With these requirements, it becomes clear
+that simply storing a copy of the domain in session-local storage is
+not enough.
+
+Web application containers already provide an application context,
+which could potentially solve this issue. Unfortunately, there are no
+real guarantees that the data stored in that context will be kept for
+an arbitrarily large period of time (recall that our transaction may
+span several days or weeks), meaning that the intermediate data must
+be kept persistently, forcing the programmer to be concerned with this
+issue.
+
+A possible solution for this requirement is to change our domain
+model, by adding a new attribute to the objects being modified (in
+this case, Course, as shown in
+Figure~\ref{fig:courseDomainState}). The {\bf status} attribute
+indicates whether the course is in a consistent state (Published) or
+not (Draft). Adding this attribute has a cost: not only the domain
+becomes polluted with information that is not relevant to the object
+being modeled, but this solution affects other functional code across
+the application, because course listings must filter out courses that
+are still in the Draft status, scattering the filtering code
+throughout the application.
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+
+\begin{class}[text width=4.5cm]{Course}{0.5,0}
+  \attribute{name : String} \attribute{objectives : String}
+  \attribute{credits : int} \attribute{bibliography : Publication[]}
+  \attribute{status : \{Draft, Published\}}
+\end{class}
+
+\begin{class}[text width=3cm]{Department}{7.5,-1}
+\end{class}
+
+\association{Department}{}{1}{Course}{}{*}
+
+\end{tikzpicture}
+
+\caption{Domain Model with state representation}
+\label{fig:courseDomainState}
+
+\end{figure}
+
+\subsection{Other approaches}
+
+There are other approaches to Long-Lived Transactions, such as using
+the Database. There are some DBMSs that announce support for
+Long-Lived Transactions, such as Oracle's Workspace Manager. However,
+such support is not standardized, their API's are proprietary,
+rendering Web frameworks unusable in those cases (they generally only
+support the SQL standard), forcing the application to be written
+against the proprietary API, making it very hard to change and
+maintain. All these factors contribute to make this approach
+inadmissible for most cases.
+
+\section{Applications of LLTs}
+
+Even though the example I just presented was targeted at a system with
+a rich domain model, there are several other applications of
+Long-Lived Transactions.
+
+\subsection{Database Management Systems}
+
+The example provided above is targeted at applications with a rich
+domain model, but there are many applications built directly on top of
+DBMSs. Those applications typically have requirements similar to those
+with a rich domain model, however, they must rely directly on the DBMS
+for transactional support.
+
+\subsection{Workflow Systems}
+
+Workflow Management Systems are another area in which Long-Lived
+Transactions are interesting. Workflow processes represent business
+transactions, consisting in a flow of steps or tasks, each of them
+possibly performed by different people.
+
+It is thus vital for Workflow Systems to embrace Long-Lived
+Transactions as a core concept, and many approaches have been
+developed in this area.
+
+Consider the Course Creation example. Assume that each step of the
+operation is executed by a different person. A Workflow Management
+System could be used to implement that operation.
+
+\section{Objectives}
+
+All this effort makes Long-Lived Transactions a concept that is very
+hard to implement, promotes bad software engineering practices
+(replication, code scattering, etc), and is difficult to reason
+about. My thesis is that the support for Long-Lived Transactions
+should be transparent, and at an infrastructural level, relieving the
+programmer from this burden.
