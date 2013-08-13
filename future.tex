@@ -1,14 +1,81 @@
 \chapter{Future Work}
 
-In this chapter, I will
+The solution proposed in this document, despite providing great
+improvements over existing solutions, still presents several
+challenges. This chapter presents a few modifications which would
+greatly enhance the 
 
 \section{Extending to other backends}
 
+At the time this document was written, only a handful of Fenix
+Framework backends were able to take advantage of the improvements for
+Long Lived Transactions.
+
+This is greatly in part because the implementation requires
+multi-versioning support, meaning that when a new value is written for
+a given box, its previous value cannot be Garbage Collected. 
+
+For in-memory backends this doesn't pose much of a problem, as those
+backends are typically used for testing and demonstrations, and as
+such deal with a small data set, making it easy to fit all versions in
+memory. 
+
+Backends with persistence support on the other hand, are greatly
+affected by this requirement. By storing every version persistently,
+the size of the database (in whatever technology it may be: SQL,
+NoSQL, text files, etc) will grow uncontrollably. Consider an
+application containing a {\it User} entity, with a slot containing the
+last time the user logged in. In the extreme case, the whole {\it
+  User} object would be replicated each time the user logged in to the
+application.
+
+To cope with this growth rate, a Garbage Collection system would have
+to be created. Assuming that Long Lived Transactions are the only
+reason for multi-versioning (which in practice may not be so), such a
+system could be developed.
+
+The system would have to scan all pending Long Lived Transactions,
+find the oldest one (i.e. the one with the smallest version number),
+and scour through the whole database, removing entries older than such
+a version. A naive approach however may not be sufficient, as stale
+transactions (i.e. not accessed for a long time) would leave the old
+versions sitting around for an indefinite amount of time.
+
+An automated approach to take care of stale transactions would then be
+needed. The solution for this issue is far from trivial, as a Long
+Lived Transaction represents a user's Unit of Work, and as such can't
+be blindly removed. However, as old transactions are likely to be in
+conflict, it would should be safe to discard those, presenting the
+user with a summary of the changes performed by the Long Lived
+Transaction. Section \ref{sec:conflicts} briefly discusses this in
+regard to conflict resolution.
+
+However, there is a possible solution that doesn't require
+multi-versioning. This solution would restrict the programming model,
+by forcing the programmer to read every piece of data within the first
+transaction step, thus ensuring that the read-set is filled within the
+first step (whose version number is chosen for the transaction). The
+Read Set would also have to store the read value (in a way similar to
+the Write Set), ensuring that all reads could be satisfied.
+
 \section{Conflict Management}
+\label{sec:conflicts}
 
+Perhaps the biggest limitation of this solution is conflict
+management. Unlike a regular transaction, a typical Long Lived
+Transaction has a greater duration and size, thus increasing both the
+probability of conflits and the amount of lost work in case of a
+conflict.
 
-
+The solution proposed so far focuses solely in strict correctness,
+providing no mechanisms for conflict reduction and handling. This
+section presents some ideas to solve those issues.
 
 \subsection{Reducing Conflicts}
 
+
+
 \subsection{Handling Conflicts}
+
+In the proposed solution, when a conflict happens the only possible
+course of action is to rollback. 
