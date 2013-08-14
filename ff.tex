@@ -1,16 +1,69 @@
 \chapter{Fenix Framework}
 \label{chap:ff}
 
-This chapter contains a detailed description of the Fenix Framework.
+``Fenix Framework allows the development of Java-based applications
+that need a {\it transactional and persistent domain model.}''
+
+This chapter describes in detail the major components of the Fenix
+Framework, used to implement the solution proposed throughout this
+document. Section \ref{sec:dml} describes the Domain Modelling
+Language, used to describe the application's domain model. Section
+\ref{sec:ff-arch} describes the high-level architecture of the
+Framework, briefly describing its major components and their
+interaction. Section \ref{sec:jvstm} presents the Java Versioned STM
+(JVSTM), and its integration with the Fenix Framework. The information
+presented in this chapter is critical to understanding the proposed
+solution, as well as its challenges.
+
+\section{Domain Modelling Language}
+\label{sec:dml}
+
+The Fenix Framework is aimed at entreprise-class applications with a
+rich domain model in an object-oriented paradigm. Such applications
+typically consist of class hierarchies representing entities with
+relationships among them, forming an interconnected graph. 
+
+The Domain Modelling Language (DML) is a Domain-Specific Language
+designed to represent such domain models, separating the domain's
+structure from its behaviour. The DML is designed with modularity as a
+core concern, allowing for incremental and modular domain definition.
+
+In a DML file, programmers write their domain definition in a
+Java-like language. A class definition consists of the class name, the
+persistent slots (either primitive or value types), and the
+super-class. Listing \ref{list:class-example} shows how the {\it
+  Course} class from Figure \ref{fig:courseDomain} could be described
+in the DML. Note that as arrays are not natively supported, a Value
+Type must be created, describing an array of publications. Value Types
+are described in more detail below.
+
+\begin{lstlisting}[caption={DML for the {\it Course} class},
+  label={list:class-example}]
+class Course {
+  String name;
+  String objectives;
+  int credits;
+  PublicationList bibliography;
+}
+\end{lstlisting}
+
+Relations in DML are named, first-class entities. A 
+ 
+
+\subsection{ValueTypes}
+\subsection{JSON}
+
 
 \section{Architecture}
+\label{sec:ff-arch}
+
 
 \section{JVSTM}
+\label{sec:jvstm}
 
 \subsection{VBoxes}
 
 \subsection{Integration}
 
-\section{To-Many Relations}
+\subsection{To-Many Relations}
 
-\section{ValueTypes}

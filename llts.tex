@@ -47,12 +47,10 @@ The pseudo-code in Listing~\ref{fig:courseCreation} implements the
 business operation of creating a new course. Assume that {\bf
   department} is inferred from the user performing the operation.
 
-\lstset{language=Java, basicstyle=\ttfamily, stepnumber=2,
-  numbersep=9pt, tabsize=4, frame=single, caption={Pseudo-Code for the
-    creation of a new course. A new Course is created, associated with
-    its department, and its attributes are filled.},
-  label={fig:courseCreation}, captionpos=b}
-\begin{lstlisting}[float]
+\begin{lstlisting}[float, caption={Pseudo-Code for the creation of a
+    new course. A new Course is created, associated with its
+    department, and its attributes are filled.},
+  label={fig:courseCreation}]
 Course course = new Course();
 department.addCourse(course);
 course.setName(name);

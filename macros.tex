@@ -5,31 +5,15 @@
 \usepackage{tikz}
 \usepackage[simplified]{pgf-umlcd}
 
-\newcommand{\attGood}{\ensuremath{\checkmark}}
-\newcommand{\attBad}{\ensuremath{\times}}
-
-\renewcommand{\lnot}{\neg}
-\renewcommand{\land}{\mathrel{\wedge}}
-\renewcommand{\lor}{\mathrel{\vee}}
-\newcommand{\Land}{\mathrel{\bigwedge}}
-\newcommand{\Lor}{\mathrel{\bigvee}}
-\newcommand{\limplies}{\rightarrow}
-\newcommand{\suchthat}{:\;}
-
-\newcommand{\true}{\mathsf{true}}
-\newcommand{\false}{\mathsf{false}}
-
-\newcommand{\naturals}{\mathbb{N}}
-\newcommand{\rationals}{\mathbb{Q}}
-\newcommand{\reals}{\mathbb{R}}
-
-\newcommand{\toolName}[1]{#1\xspace}
-
-\newcommand{\tabUnit}{3ex}
-\newcommand{\tabT}{\hspace*{\tabUnit}}
-\newcommand{\tabTT}{\hspace*{\tabUnit} \hspace*{\tabUnit}}
-\newcommand{\tabTTT}{\hspace*{\tabUnit} \hspace*{\tabUnit} \hspace*{\tabUnit}}
-\newcommand{\tabTTTT}{\hspace*{\tabUnit} \hspace*{\tabUnit} \hspace*{\tabUnit} \hspace*{\tabUnit}}
-\newcommand{\tabTTTTT}{\hspace*{\tabUnit} \hspace*{\tabUnit} \hspace*{\tabUnit} \hspace*{\tabUnit} \hspace*{\tabUnit}}
-
 \usepackage[utf8]{inputenc}
+
+\usepackage{color}
+\definecolor{javared}{rgb}{0.6,0,0} % for strings
+\definecolor{javagreen}{rgb}{0.25,0.5,0.35} % comments
+\definecolor{javapurple}{rgb}{0.5,0,0.35} % keywords
+ 
+
+\lstset{language=Java, basicstyle=\ttfamily, frame=single,
+  captionpos=b, tabsize=8, numbers=none, xleftmargin=30pt,
+  xrightmargin=30pt, keywordstyle=\color{javapurple}\bfseries,
+  stringstyle=\color{javared}, commentstyle=\color{javagreen}}
