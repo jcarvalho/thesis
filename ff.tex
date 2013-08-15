@@ -47,23 +47,159 @@ class Course {
 }
 \end{lstlisting}
 
-Relations in DML are named, first-class entities. A 
- 
+Relations in DML are named, first-class entities. RELATIONS
 
-\subsection{ValueTypes}
+From the domain definition, the Fenix Framework generates Java getters
+and setters for the properties and relations. For each DML class, a
+Java class is created, along with a {\it Base} class, containing the
+generated methods, as well as internal helper methods used to persist
+the properties. As such, Base classes contain the application's
+structure, and the non-Base classes contain the application's
+behaviour. 
+
+\subsection{Value Types}
+
+In the DML there is a distinction between entities (classes and
+relations) and value objects. Whereas an entity is transactional and
+persistent, a value object is immutable and not persistent. Value
+objects are used as the values for slots of DML classes, and must be
+of well-known types, known as Value Types.
+
+A value type contains information regarding the Java Type (such as
+{\it java.math.BigDecimal}), an alias (such as {\it BigDecimal}), and information
+regarding how the object will be externalised/internalized. 
+
+There are two categories of Value Types: Builtin (Java Primitives and
+their wrappers, Enums, JodaTime types, JsonElement, and byte arrays)
+and user-defined. User-defined types allow the programmer to use any
+type they wish as a slot, provided the type is immutable (explanation
+as to why is provided ahead) and can be expressed in terms of other
+Value Types.
+
+The Framework knows how to handle Builtin Value Types (i.e. how to
+store/retrieve from persistent support). User-defined, on the other
+hand, require that the programmer specify how the type is
+externalised/internalized. The externalised type must be either a
+Builtin Value Type, or a used-defined one (provided it externalises to
+a builtin).
+
 \subsection{JSON}
 
+JSON (JavaScript Object Notation) is described as being ``[...] a
+lightweight data-interchange format.''. JSON is quickly becoming the
+de-facto standard to interchange data across heterogeneous systems,
+replacing XML in many cases.
+
+As such, in the context of this work, the Framework was extended to
+provide native JSON support (by allowing it as a Builtin Value Type),
+using Google's GSON\footnote{http://code.google.com/p/google-gson/}.
+Using JSON allows the programmer to define arbitrarily complex Value
+Types with little effort, as well as simplifying externalisation code.
+
+The Framework also provides support to transform any Value Type
+to/from JSON, meaning that a JsonElement slot is enough to keep any
+value the Fenix Framework is able to handle. As will be presented in
+Chapter~\ref{chap:solution}, this proves to be a crucial feature.
 
 \section{Architecture}
 \label{sec:ff-arch}
 
+In Fenix Framework 1.x (as presented in \cite{fernandes2011strict})
+had a rather monolithic architecture. Transactional support was
+provided by the JVSTM (see Section \ref{sec:jvstm}), and persistence
+was implemented on top of MySQL, leaving the programmer with no other
+choice of technology.
+
+With the second major version of the Framework (released earlier this
+year), a great architectural shift has occurred. There is now a clear
+separation between the Framework's public API and the
+transactional/persistence backends, allowing for a ``write once, run
+everywhere'' paradigm. The programmer simply writes his application
+against a public API and is able to run it on multiple backends.
+
+This way, not only are applications portable across several
+technologies (MySQL, Neo4j, MongoDB, etc), but also testing support is
+greatly enhanced, as there is no need to mock the persistence API, as
+tests can be run using an in-memory backend.
+
+<FIGURA ARCH>
+
+\subsection{Public API}
+
+The Framework provides a Public API, which is to be used by
+programmers in their applications.
+
+\subsection{Backends}
+
+Backends provide concrete implementations of the transactional and
+persistence support. The code of the backend is deemed private API,
+and as such, no applications should be coded against it unless they
+are willing to sacrifice portability.
+
+Backends are responsible for the Code Generation of Base classes
+(meaning that backends can add any methods and fields necessary to aid
+internal backend operations).
 
 \section{JVSTM}
 \label{sec:jvstm}
 
-\subsection{VBoxes}
+The Java Versioned Software Transactional Memory (JVSTM)
+\cite{cachopo2006versioned} is a pure-Java implementation of a
+Software Transactional Memory (see Section~\ref{sec:stm}).
+
+The JVSTM uses the concept of Versioned Boxes (VBoxes) to make a
+memory location transactional, keeping the history of values for that
+position, one for each version of the world. Reads and Writes to
+VBoxes are tracked by the JVSTM in a per-transaction basis. 
+
+Each transaction begins at a given moment, acquiring the version
+number at that moment. The version number is used during the
+transaction to ensure that all reads get the correct value at the time
+of the transaction's start, thus providing Snapshot Isolation. This
+allows for conflict-free read-only transactions, as concurrent
+transactions writing to the read boxes will write a new version
+without overwriting its value.
 
 \subsection{Integration}
 
+The JVSTM is integrated with the Fenix Framework, as one of the
+multiple available backends. This document focuses on the backend
+named 'jvstm-common'. This backend uses the JVSTM for the
+transactional support, while abstracting the persistence
+details. Despite being meant to be extended, 'jvstm-common' provides
+an in-memory implementation of the persistence API.
+
+The implementation of the solution proposed in
+Chapter~\ref{chap:solution} rests on top of this abstract backend,
+meaning that it will work on top of any persistent support, as long as
+the JVSTM is used.
+
+In this backend, Base classes use VBoxes to transactionally store the
+value objects, thus taking advantage of the JVSTM. The generated
+getters and setters are backed by VBox.set() and VBox.get(), and can
+only be invoked from within a valid transaction.
+
+Slots from domain classes are backed by a {\it PrimitiveBox},
+containing the value of the slot, whereas relations are kept within
+{\it RefereceBoxes}.
+
+\subsection{VBoxes}
+
+A plain JVSTM VBox is simply a wrapper to a Linked-List of pairs
+[Version, Value], containing the history is values for that
+box, as seen in Figure \ref{fig:vbox}.
+
+A Fenix Framework VBox however, also contains a back-pointer to its
+owner, as well as the name of the slot it represents. This allows for
+the persistence support to know where to store the value of the Box.
+
+Those specialised VBoxes can have their previous values
+Garbage-Collected and reloaded from persistent support on-demand.
+
 \subsection{To-Many Relations}
 
+All domain relations are kept within a ReferenceBox, named after the
+relation. To-one relations simply keep a reference to the related
+object, or null if there isn't one.
+
+For To-many relations however, 
