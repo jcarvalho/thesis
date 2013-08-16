@@ -1,6 +1,125 @@
 \chapter{Solution}
 \label{chap:solution}
 
-Solution here
+This chapter describes a proposed solution to ease the programming
+effort of Long Lived Transactions. It consists of three major topics:
+Architecture, Implementation and Validation.
 
 \section{Architecture}
+
+The main goal of this solution is to relieve programmers of the burden
+of dealing with Long Lived Transactions, making the effort needed to
+program one similar to the effort of programming a regular
+transaction.
+
+So, what does the single interaction scenario has that makes it so
+easy to program? It has a single transactional context that spans the
+whole operation (provided by a regular transaction, given that they
+have the same lifespan). In the second scenario the transaction was
+shorter than the whole operation, so the context was lost in each
+step.
+
+The main concept of the proposed architecture is that of the {\bf
+  Transactional Context}. It is represented as a first-class domain
+entity in our rich domain model, making it persistent (unlike the
+context provided by a single transaction) and transactional. With this
+persistent context, the programmer no longer needs to rely on the
+database to provide the transactional semantics of the operation.
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+
+    \begin{class}[text width=4cm]{TransactionalContext}{0,0}
+    \end{class}
+
+    \begin{class}[text width=1.6cm,minimum height=5em]{LogEntry}{4,-2}
+    \end{class}
+
+    \begin{class}[text width=3cm]{DomainObject}{8,0}
+    \end{class}
+
+    \draw [umlcd style school] (TransactionalContext) |-
+    node[below]{Read Set} (LogEntry) node[near start, left]{1} node[near
+    end, below]{*};
+
+    \draw [umlcd style school] (TransactionalContext) --
+    node[right]{Write Set} (LogEntry) node[near start, above]{1} node[near
+    end, right]{*};
+
+    \draw [umlcd style school] (DomainObject) -- node[left]{Object}
+    (LogEntry) node[near start, above]{1} node[near end, left]{*};
+
+    \draw [umlcd style school] (DomainObject) |- node[below]{Value}
+    (LogEntry) node[near start, right]{1} node[near end, below]{1};
+
+  \end{tikzpicture}
+
+  \caption{Transactional Context}
+  \label{fig:transactionalContext}
+
+\end{figure}
+
+Figure \ref{fig:transactionalContext} presents the conceptual model of
+the Transactional Context. Because it is a first-class entity, it can
+be manipulated just like any other domain object. Its purpose is to
+keep all the changes made to the domain objects during the
+transaction, keeping those changes isolated from code executing
+outside this context.
+
+The Transactional Context has a persistent reification of the Read Set
+and Write Set using LogEntries. A LogEntry contains a reference to the
+object it represents, and the name of the slot within that
+object. LogEntries from the Write Set also contain a JsonElement with
+the written value (which will later be used when reading the slot and
+committing).
+
+When reading a slot of a domain object, the Write Set is searched. If
+it contains a LogEntry matching the slot, its value is read and
+returned. If not, a new LogEntry will be added to the Read Set,
+indicating that the slot should be taken into account when performing
+conflict detection at commit time.
+
+A Transactional Context can be explicitly committed or rolled
+back. Committing the context will iterate over the Read Set, checking
+if the read value is still the correct one, if it isn't, a conflict is
+detected and the context is marked as conflict (just like in a regular
+transaction). Rolling back a context will simply discard its sets of
+LogEntries. If either of these operations is run within the context
+that is being operated upon, an error is thrown.
+
+The domain presented in Figure~\ref{fig:transactionalContext} provides
+all that is necessary to implement Long Lived Transactions, as every
+read/written object can be represented in it. However, it wouldn't be
+such a great API if programmers were required to manually perform the
+reads and writes to the Transactional Context, therefore, some
+collaboration is required from the domain getters and setters, to
+ensure the calls are routed to the correct location.
+
+As such, programmers can bind a TransactionalContext to a thread, and
+every transaction for that thread will delegate its reads and writes
+to the thread's context, as a transactional step within the Long Lived
+Transaction. 
+
+\begin{lstlisting}[caption={Example of TransactionalContext usage},
+  label={list:longTxBind}]
+try {
+  LongTransaction.setContextForThread(context);
+  transactionalOperation();
+} finally {
+  LongTransaction.removeContextFromThread();
+}
+\end{lstlisting}
+
+In Listing~\ref{list:longTxBind} is shown all the code the programmers
+needs to write to ensure that his transactional code runs within the
+context of a Long Lived Transaction.
+
+When inside a Transactional Context, beggining a new transaction will
+also create a nested transaction, whose primary function is to
+coordinate reads and writes, so they take into account the context
+associated to the transaction. By using a nested transaction, there is
+a decoupling between the Long Transaction support and the actual
+transaction (which will vary depending on the backend).
+
+\section{Implementation}
