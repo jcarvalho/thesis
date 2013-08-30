@@ -122,4 +122,69 @@ associated to the transaction. By using a nested transaction, there is
 a decoupling between the Long Transaction support and the actual
 transaction (which will vary depending on the backend).
 
+As a consequence of using the transactional context, 
+
 \section{Implementation}
+
+The previous section described a solution to ease the development of
+Long Lived Transaction. This section describes how that solution was
+implemented on the Fenix Framework, using the JVSTM as the
+transactional support provider.
+
+This implementation is split into two major parts:
+
+\begin{itemize}
+
+\item {\bf API} contains the structural part of the Architecture (the
+  domain declaration of TransactionalContexts and LogEntries), as well
+  as the API available to the programmer.
+
+\item {\bf JVSTM support} contains the actual implementation for 
+
+\end{itemize}
+
+The goal of this separation is twofold: to allow alternative
+implementations on top of non-JVSTM backends, and to hide internal
+implementation from the programmer (who should not depend on backend
+code).
+
+\subsection{Programmer API}
+
+In the {\bf long-tx-api} module, programmers can find the available
+API to work with Long Lived Transactions.
+
+The first major component of this API is the domain. The domain is
+public API, so that Long Lived Transactions can be associated with any
+programmer-defined object (e.g., to a user, to a group, a process
+etc). This design decision allows for a simple solution, as
+cross-cutting concerns such as security and sharing are abstract, and
+also gives the programmer more flexibility.
+
+It is the programmer's responsibility to instantiate a new
+TransactionalContext every time a new Long Lived Transaction is to be
+started. With the context in hand, the programmer simply needs to bind
+it to the thread running the step. Listing~\ref{list:longTxBind} shows
+the code necessary to bind the context to a thread.
+
+Using only this simple API, the programmer is able to easily code
+features that benefit from Long Lived Transactions with little effort.
+
+\section{Validation}
+
+
+\subsection{Correctness}
+
+Perhaps the greatest challenge on implementing Long Lived Transactions
+vs a regular transaction is ensuring that the same correctness
+guarantees are provided. This section demonstrates that the presented
+solution gives the same guarantees as a regular transaction.
+
+
+
+
+
+\subsection{Ease of Use}
+
+The primary goal of this work is to ease the development of Long Lived
+Transactions, and as such, it is rather important to provide a simple
+and concise API.
