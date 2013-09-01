@@ -1,13 +1,45 @@
 \chapter{Optimization}
 
-As shown in Chapter \ref{chap:validation}, the initial implementation,
-while functional, presented very poor performance results. This
-chapter describes the optimizations applied to the implementation,
-resulting in remarkable practical results.
+The solution presented in Chapter~\ref{chap:solution}, despite
+providing correctness guarantees and ease of use, performs poorly in
+even trivial test cases. This chapter describes a series of
+optimizations made to keep the overhead as low as possible, without
+sacrificing correctness.
 
-\section{Annotations}
+\section{Example Application}
 
-Is this worth mentioning?
+To perform accurate measurements, a sample banking application was
+developed. In this application's domain there is a central Bank with
+Customers, which in turn have their accounts. For each account there
+is a slot representing the account's balance, and there is a method to
+show a customer's balance (by summing the balance of all his
+accounts). Every time a transaction is done, a new TransactionRecord
+is created, containing a timestamp, the origin and destination
+accounts, as well as the amount transfered.
+
+In this scenario, a Business Transaction will be made of several
+banking transactions throughout a series of steps. This is the perfect
+candidate for a Long Lived Transaction.
+
+With the support presented in previous sections, the programmer simply
+writes the application's code as he would without considering Long
+Lived Transactions. No changes to the data structures and business
+logic are required.
+
+Using this banking domain, a sample application was developed. In this
+fictitious scenario, the bank would start with a certain number of
+customers (this number was configurable so different parameters could
+be measured), create a Long Lived Transaction with a configurable
+number of steps. Within each step, new customers and accounts would be
+created, money would be shuffled between all the bank's accounts
+(creating a new TransactionRecord for each transaction), and the total
+balance is calculated. This means that in each step: 1) Every object
+is read, 2) Many objects are written, 3) Many objects are created.
+
+\section{Initial Solution Performance}
+
+The initial solution 
+
 
 \section{Read-Set differentiation}
 
