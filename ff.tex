@@ -47,7 +47,25 @@ class Course {
 }
 \end{lstlisting}
 
-Relations in DML are named, first-class entities. RELATIONS
+Relations in DML are named, first-class entities which represent
+relationship between two classes. Relations are always bi-directional,
+meaning that updating one side of the relation will automatically
+update the other side. Relations can be concealed in one of the sides
+(meaning that it will not be possible to access it), however their
+state is still kept.
+
+It is possible to define {\it one-to-one}, {\it one-to-many} and {\it
+  many-to-many relationships}, and it is possible to define boundaries
+on the multiplicity of each relation (for example, a {\it Course} can
+have between 0 and 30 {\it Students}. Any violation to these
+constraints will put the relation in an inconsistent state and will be
+discarded. 
+
+To-Many relations in the Fenix Framework have Set semantics, meaning
+that an object can only be present in a relation once, and there are
+no ordering guarantees when accessing the relation.
+
+=EXEMPLO RELACOES=
 
 From the domain definition, the Fenix Framework generates Java getters
 and setters for the properties and relations. For each DML class, a
@@ -179,10 +197,6 @@ value objects, thus taking advantage of the JVSTM. The generated
 getters and setters are backed by VBox.set() and VBox.get(), and can
 only be invoked from within a valid transaction.
 
-Slots from domain classes are backed by a {\it PrimitiveBox},
-containing the value of the slot, whereas relations are kept within
-{\it RefereceBoxes}.
-
 \subsection{VBoxes}
 
 A plain JVSTM VBox is simply a wrapper to a Linked-List of pairs
@@ -196,10 +210,69 @@ the persistence support to know where to store the value of the Box.
 Those specialised VBoxes can have their previous values
 Garbage-Collected and reloaded from persistent support on-demand.
 
-\subsection{To-Many Relations}
+\subsubsection{VBoxes for slots}
 
-All domain relations are kept within a ReferenceBox, named after the
-relation. To-one relations simply keep a reference to the related
-object, or null if there isn't one.
+There are two layouts when mapping VBoxes in DomainObject slots: 1)
+Using one VBox to keep the entire state of the object (One-Box) and 2)
+Using one VBox per slot (Multi-Box).
 
-For To-many relations however, 
+The first layout suffers from a higher number of conflicts, as reading
+one slot will conflict with writing another slot on the same object
+(as they are mapped to the same VBox), however the memory usage is
+much lower, as each VBox has a cost for its underlying data
+structures. This aspect is critical in applications with a dense
+domain model, with many objects and many slots.
+
+Smaller applications can use the Multi-Box layout to greatly reduce
+conflicts. In this layout, each domain slot is given its own VBox.
+
+In both layouts, a specialised VBox called {\it PrimitiveBox} is
+used to store either the object's state or the slot's value. There is
+no added behaviour or data in a PrimitiveBox, however persistence
+support uses this information to determine whether to reload a box
+containing the state (or part of it) of an object or a box for a relation.
+
+\subsubsection{VBoxes for relations}
+
+In the One-Box layout, to-one relations are kept inside the object's
+state, and as such require no special handling. 
+
+On the other hand, for a Multi-Box layout, the reference to the
+related object is kept in a {\it ReferenceBox}. Just like a {\it
+  PrimitiveBox}, it contains no extra behaviour or data, and serves
+only as a marker for persistence support to know it has to load an
+object reference.
+
+To-many relations however, are handled in a very different manner. The
+preferred approach is to use a B+Tree\footnote{See
+  $http://en.wikipedia.org/wiki/B+_tree$} to store the objects on the
+to-many side of the relation. For each to-many relation, a {\it
+  ReferenceBox} is generated, containing a reference to the domain
+object representing the B+Tree.
+
+The Fenix Framework provides an implementation of persistent B+Trees
+that doesn't use to-many relations (by design, so it can be used to
+implement them). In this implementation, each node of the tree is a
+domain object containing only a reference to its parent and its
+sibling. Inner nodes use an immutable TreeMap wrapper to keep indexed
+references to the nodes they point to. Leaf nodes follow the same
+strategy, keeping the mapping between keys and the objects they point
+to (In reality they can be used to point at anything, however for this
+document we are only interested in B+Trees containing domain objects).
+
+As a B+Tree is generically a key-value map, its usage can be twofold:
+provide a simple way to implement to-many relations and provide
+support for relations indexed by a slot of the related
+object. Consider the previously presented {\it Course} example. In
+this model, one Course has many Students. As such, there is a B+Tree
+slot in the Course Base class, which contain the references to all the
+students enrolled in that particular course.
+
+In the usual scenario, the B+Tree contains a mapping between OIDs and
+the respective target object (which is rather useless, as the Fenix
+Framework provides a lightweight API to read an object by its OID).
+Now consider a scenario where the set of students must be indexed by
+student name. The B+Tree will now contain a mapping between the
+student's name and the target student, allowing for indexed lookups of
+students by name.
+
