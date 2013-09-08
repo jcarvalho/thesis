@@ -70,15 +70,68 @@ conflict.
 
 The solution proposed so far focuses solely in strict correctness,
 providing no mechanisms for conflict reduction and handling. This
-section presents some ideas to solve those issues.
+section presents some ideas to solve those issues. It is divided in
+two main areas: reducing conflicts altogether, and improving the way
+conflicts are handled.
 
 \subsection{Reducing Conflicts}
 
+Consider the Course creation scenario presented in previous
+chapters. Now consider that the application used to create such
+Courses uses domain objects to represent the structure of the
+application's menu. With the current implementation of Long Lived
+Transactions, any change to one of the menu items would cause the
+Course creation to be rolled back!
 
+This is because rendering the Course creation page would read the
+domain objects used to represent the items in the menu (so it could be
+rendered), putting them in the read set, despite the fact that they
+are not directly related to the operation the user is performing.
 
+A possible approach would be to extend the DML to allow the programmer
+to specify specific classes or slots to have their transactional
+properties relaxed in Long Lived Transactions.
 
+Those classes would still be added to the read set of the Long Lived
+Transaction, however, the transaction would not conflict even if the
+read version is previous than the current version, unless the box has
+been written by the transaction (to avoid dirty writes). This would
+require special care from the programmer, as it makes it possible to
+perform operations based on an old version of a part of the data.
+
+Another possibility is to take advantage of restartable
+transactions. Restartable transactions were first introduced in the
+JVSTM in \cite{cachopo2006versioned}, and was explored in more detail
+in \cite{BrunoJorgeGasparFranco2013}.
+
+Restartable transactions are presented as programmer-defined portions
+of a larger transaction.
+
+CONTINUAR
 
 \subsection{Handling Conflicts}
 
 In the proposed solution, when a conflict happens the only possible
-course of action is to rollback. 
+course of action is to rollback, as it is not possible to restart the
+whole transaction.
+
+If the detected conflict isn't recoverable, it is up to the user to
+determine whether the written data can actually be merged with the
+global context. As such, handling conflicts in Long Lived Transactions
+is more of a User Interaction problem than an infrastructural problem.
+
+An interface could be devised, showing the end-user what data was
+written in the transaction, and the conflicting read data, similar to
+existing conflict resolution tools (such as Meld and Git's conflict
+resolution mechanism).
+
+The user could then analyse that data to determine whether the
+conflicts are relevant according to the business rules, and choose to
+rollback the Transaction, to merge parts of the written data or to
+simply commit the operation.
+
+Giving users so much power (as this solution could allow them to
+deliberately leave the system in an inconsistent state) is
+dangerous. Should the interface be poorly designed, it would be simple
+for a user to perform the wrong action. It requires a great deal of
+analysis, user testing and interaction testing.
