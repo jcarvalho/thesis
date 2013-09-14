@@ -104,10 +104,60 @@ transactions. Restartable transactions were first introduced in the
 JVSTM in \cite{cachopo2006versioned}, and was explored in more detail
 in \cite{BrunoJorgeGasparFranco2013}.
 
-Restartable transactions are presented as programmer-defined portions
-of a larger transaction.
+Restartable transactions are programmer-defined portions of code that
+are marked as being re-executable within the context of a single
+transaction. When a conflict is detected due to a piece of data that
+was only read inside a restartable transaction (i.e. a piece of code
+marked as restartable), only that smaller transaction is restarted. If
+the outcome of this transaction (which reads commit-time values) is
+the same as the original execution, then it is safe to commit the
+whole transaction.
 
-CONTINUAR
+Consider the naive implementation of a {\it contains} method in a {\it
+  Collection} class shown in Listing \ref{list:restartable}.
+
+\begin{lstlisting}[caption={Restartable {\it contains} method},
+  label={list:restartable}]
+@Restartable
+public boolean contains(Object obj) {
+  for(Object o : this)
+    if (Objects.equals(o, obj)) return true;
+  return false;
+}
+\end{lstlisting}
+
+A write transaction that at some point during its execution invokes
+the {\it contains} method will cause the whole collection to be read.
+A concurrent transaction adding a newly created item to the list and
+commits. This will cause the original transaction to abort, as the
+read value for collection is no longer the latest value.  As the
+conflicting item was only read inside {\it contains}, the method is
+re-executed with the latest data (in which the new element is in the
+collection). As the outcome of the method is the same, the transaction
+can now commit safely.
+
+There are many challenges and limitations regarding restartable
+transactions, and they are addressed in greater detail in
+\cite{cachopo2006versioned} and \cite{BrunoJorgeGasparFranco2013}.
+
+The concept of Restartable transactions can possibly be extended to
+support Long Lived Transactions. In a Long Lived Transaction there are
+clearly defined, individual steps which can be potentially restarted.
+
+Recall the menu items issue presented above. Consider that between two
+steps of the Long Lived Transaction, one of the menu items has its
+title changed. This means that at least one step of the Long Lived
+Transaction has read old data, that had no impact on the outcome of
+the step.
+
+With a few modifications to the commit algorithm and data structures,
+it would be possible to restart the conflicting step(s) and check its
+result against the original state. In this example, as the menu change
+didn't affect the operation, the outcome would be the same, and the
+Long Lived Transaction could be committed.
+
+EXPLAIN HOW!
+
 
 \subsection{Handling Conflicts}
 
