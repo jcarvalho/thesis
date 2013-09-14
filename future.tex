@@ -135,3 +135,25 @@ deliberately leave the system in an inconsistent state) is
 dangerous. Should the interface be poorly designed, it would be simple
 for a user to perform the wrong action. It requires a great deal of
 analysis, user testing and interaction testing.
+
+\section{Expanding beyond the Fenix Framework}
+
+Many enterprise applications use industry-standard persistence
+frameworks, such as JPA, Hibernate, Spring Data, iBatis and many
+others. Despite being possible to use the Fenix Framework to work on
+top of such frameworks, converting existing applications to use the
+Fenix Framework core API is a rather difficult and cumbersome task.
+
+The solution proposed in this document is focused solely in the Fenix
+Framework, both from a design and implementation standpoints. Long
+Lived Transactions however, are a problem that is agnostic to the
+technology. As such, it would be interesting to port this solution to
+other, more popular, technologies.
+
+Most of the design is actually agnostic to the Fenix Framework, and
+requires features already provided by many other technologies: access
+to previous versions of the domain objects and the ability to
+intercept transaction boundaries as well as reads and writes.
+
+
+
