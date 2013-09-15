@@ -37,13 +37,18 @@ in the DML. Note that as arrays are not natively supported, a Value
 Type must be created, describing an array of publications. Value Types
 are described in more detail below.
 
-\begin{lstlisting}[caption={DML for the {\it Course} class},
+\begin{lstlisting}[caption={DML for the {\it Course} and {\it
+      Department} classes},
   label={list:class-example}]
 class Course {
   String name;
   String objectives;
   int credits;
   PublicationList bibliography;
+}
+
+class Department {
+  String name;
 }
 \end{lstlisting}
 
@@ -56,16 +61,36 @@ state is still kept.
 
 It is possible to define {\it one-to-one}, {\it one-to-many} and {\it
   many-to-many relationships}, and it is possible to define boundaries
-on the multiplicity of each relation (for example, a {\it Course} can
-have between 0 and 30 {\it Students}. Any violation to these
+on the multiplicity of each relation (for example, a {\it Department} can
+have between 0 and 30 {\it Courses}. Any violation to these
 constraints will put the relation in an inconsistent state and will be
 discarded. 
 
 To-Many relations in the Fenix Framework have Set semantics, meaning
-that an object can only be present in a relation once, and there are
+that an object can only be present in a relation once. Also, there are
 no ordering guarantees when accessing the relation.
 
-=EXEMPLO RELACOES=
+\begin{lstlisting}[caption={DML for the relation between {\it Course}
+    and {\it Department}},label={list:relation-example}]
+relation DepartmentHasCourses {
+  Department playsRole department {
+    multiplicity 1..1;
+  }
+  Course playsRole course {
+    multiplicity *;
+  }
+}
+\end{lstlisting}
+
+Listing~\ref{list:relation-example} shows how the relation presented
+in Figure~\ref{fig:courseDomain} could be described in the DML. The
+relation is given a name that accurately describes the ownership
+relation between the two classes, as well as names to describe the
+role of each class. The multiplicity is defined for each of the roles,
+in this case, one {\it Department} has zero or more {\it Courses}, and
+one {\it Course} has between one and one (exactly one) {\it
+  Department}.
+
 
 From the domain definition, the Fenix Framework generates Java getters
 and setters for the properties and relations. For each DML class, a
@@ -73,7 +98,8 @@ Java class is created, along with a {\it Base} class, containing the
 generated methods, as well as internal helper methods used to persist
 the properties. As such, Base classes contain the application's
 structure, and the non-Base classes contain the application's
-behaviour. 
+behaviour. Generation of base classes is described in more detail in
+Section~\ref{sec:codeGen}.
 
 \subsection{Value Types}
 
@@ -140,25 +166,79 @@ technologies (MySQL, Neo4j, MongoDB, etc), but also testing support is
 greatly enhanced, as there is no need to mock the persistence API, as
 tests can be run using an in-memory backend.
 
-<FIGURA ARCH>
+Figure~\ref{fig:ff-arch} shows the major modules that constitute the Fenix
+Framework.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.5\linewidth]{ff-arch}
+\caption{Fenix Framework Architecture}
+\label{fig:ff-arch}
+\end{figure}
+
+The 'DML Compiler' module contains the parser responsible for reading
+DML files and creating an in-memory description of the Domain Model,
+as well as all the necessary classes to represent it. It also contains
+the base {\it DomainObject} interface, which all objects of the Domain
+Model implement. Also present in this module are the base Code
+Generators used to create the Base classes for all domain
+objects.
+
+The core of the Framework is in the 'Core API' module. Transaction
+management APIs, configuration, entry points, backend interfaces, are
+all defined in this module.
+
+Many backend-independent modules are provided with the Fenix Framework
+bundle. These include persistent Abstract Data Types (B+Trees, Linked
+Lists, etc), support for Consistency
+Predicates \cite{JoaoCoutinhoNeves2011}, statistics collection tools,
+indexing and transaction introspection. These modules are used
+internally by the various backends, but can (and in most cases should)
+also be used by the programmers.
+
+Backends provide the concrete implementations of transactional and
+persistence support, 
+
+COMPLETE
 
 \subsection{Public API}
 
-The Framework provides a Public API, which is to be used by
-programmers in their applications.
+The modules 'DML Compiler' and 'Core API' form the public API of the
+Fenix Framework. When programming application modules, programmers
+should only depend on those two modules
 
 COMPLETE
 
 \subsection{Backends}
 
 Backends provide concrete implementations of the transactional and
-persistence support. The code of the backend is deemed private API,
-and as such, no applications should be coded against it unless they
-are willing to sacrifice portability.
+persistence support. Application modules should not depend directly on
+the backends, as their API is private and as such subject to change
+even among minor versions, and having a dependency on a specific
+backend means that portability must be sacrificed.
 
-Backends are responsible for the Code Generation of Base classes
-(meaning that backends can add any methods and fields necessary to aid
-internal backend operations).
+Backends provide a concrete implementation of the Transaction Manager
+API (available to programmers), 
+
+COMPLETE
+
+\section{Code Generation}
+\label{sec:codeGen}
+
+In the Fenix Framework, access to persistent fields is done through
+generated methods in Base classes. 
+
+There are two major components in code generation: the base code
+generator, which fullfills the API for the domain classes using POJOs
+with a Java field for each persistent field, and backend-specific code
+generators.
+
+The base code generator is used to allow compilation of
+backend-independent modules, as well as define the contents of the
+generated API.
+
+Backends provide their own specializations of the base code generator
+to 
 
 COMPLETE
 
