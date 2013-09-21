@@ -197,17 +197,36 @@ internally by the various backends, but can (and in most cases should)
 also be used by the programmers.
 
 Backends provide the concrete implementations of transactional and
-persistence support, 
-
-COMPLETE
+persistence support, and are required for applications to work.
 
 \subsection{Public API}
 
-The modules 'DML Compiler' and 'Core API' form the public API of the
-Fenix Framework. When programming application modules, programmers
-should only depend on those two modules
+One of the major advantages of the Fenix Framework is that
+applications built on top of it are independent of the underlying
+persistence and transactional backend. However, to guarantee this
+property, the modules that form the such applications must be compiled
+against the Public API of the Framework.
 
-COMPLETE
+The public API is split in two major components:
+
+\begin{itemize}
+\item {\bf DML Compiler} Allows applications to have runtime access to
+  the structure of the domain and allows registering relation
+  listeners that will be invoked each time a relation is
+  modified. This module also defines the API that is generated based
+  on the DML, which must be supported by all backends.
+
+\item {\bf Core API} Provides the entry point for the domain's object
+graph through the {\it DomainRoot} class, the mechanism to retrieve a
+Domain Object from its unique identifier, transaction APIs that can be
+used to either mark a piece of code as transactional (@Atomic
+annotation) or to manually manage the lifecycle of transactions and
+utilities to configure the Framework.
+\end{itemize}
+
+With this separation the classpath of the application modules is not
+'polluted' with implementation details, allowing for a faster
+development and test cycle.
 
 \subsection{Backends}
 
@@ -217,8 +236,11 @@ the backends, as their API is private and as such subject to change
 even among minor versions, and having a dependency on a specific
 backend means that portability must be sacrificed.
 
-Backends provide a concrete implementation of the Transaction Manager
-API (available to programmers), 
+The fact that backends have a clear separation from the Public API
+allows for a much faster evolution of the backend's
+implementation. Major internal changes can be done without affecting
+the end-users directly, even in a revision release, whereas changes to
+the public API require either a major or minor release. 
 
 COMPLETE
 
@@ -228,19 +250,27 @@ COMPLETE
 In the Fenix Framework, access to persistent fields is done through
 generated methods in Base classes. 
 
-There are two major components in code generation: the base code
-generator, which fullfills the API for the domain classes using POJOs
-with a Java field for each persistent field, and backend-specific code
-generators.
+There are two major components in code generation:
 
-The base code generator is used to allow compilation of
-backend-independent modules, as well as define the contents of the
-generated API.
+\begin{itemize}
 
-Backends provide their own specializations of the base code generator
-to 
+\item The default code generator, from which every other generator
+  inherits, defines the public generated API for domain classes. Its
+  major use-case is to compile backend agnostic application modules
+  that only need base classes because of their API (modules aren't
+  bundled with base classes, those are generated on-demand on
+  depending modules or applications).
 
-COMPLETE
+\item Backend-provided code generators. These generators extend the
+  base ones, thus providing the same API, using backend-specific
+  artifacts to fullfil the API. Backends can also use code generators
+  to optimise runtime performance, by injecting in generated code
+  values that otherwise would have to be computed in runtime.
+\end{itemize}
+
+Code generation is a critical part of the Fenix Framework, and it
+presents a tradeoff between code readability (as domain classes will
+extend Base classes, not the domain  
 
 \section{JVSTM}
 \label{sec:jvstm}
@@ -286,6 +316,13 @@ only be invoked from within a valid transaction.
 A plain JVSTM VBox is simply a wrapper to a Linked-List of pairs
 [Version, Value], containing the history is values for that
 box, as seen in Figure \ref{fig:vbox}.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.5\linewidth]{vbox-list}
+\caption{VBox Structure}
+\label{fig:vbox}
+\end{figure}
 
 A Fenix Framework VBox however, also contains a back-pointer to its
 owner, as well as the name of the slot it represents. This allows for
