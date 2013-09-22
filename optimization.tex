@@ -98,7 +98,7 @@ sections present those optimizations.
 In the initial implementation, {\it LogEntries} were used to reify
 both the Read Set and the Write Set.
 
-Recalling Figure \ref{fig:architecture}, {\it LogEntries} store a
+Recalling Figure \ref{fig:transactionalContext}, {\it LogEntries} store a
 reference to the DomainObject they refer to, the name of the slot, and
 the slot's value. Using the same objects to represent both sets proved
 to be quite expensive, as the Read Set only cares about which slots
