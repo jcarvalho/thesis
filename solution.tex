@@ -427,18 +427,54 @@ vs a regular transaction is ensuring that the same correctness
 guarantees are provided. This section demonstrates that the presented
 solution gives the same transactional guarantees as a regular transaction.
 
+The JVSTM provides all three ACI (Atomicity, Consistency and
+Isolation) properties, whereas the Fenix Framework aids in providing
+the Durability property (which actually depends on the concrete
+backend used). The JVSTM also guarantees an Opacity level of
+isolation (refer to Section~\ref{sec:opacity}).
+
+The solution presented in this chapter extends all the ACID properties
+to Long Lived Transactions, and in 
+
+
+
 \begin{itemize}
 
 \item {\bf Atomicity} is provided as all the writes performed during
   the transaction are only written to the global context when the
   transaction is committed.
 
-\item {\bf Isolation} is provided because all the data is kept 
+\item {\bf Isolation} is provided as all the data is kept in an
+  isolated context.
 
 \item {\bf Consistency} is provided in the same way as a regular
-  transaction, by ensuring that every
+  transaction, by ensuring that every read is still valid at commit
+  time.
+
+\item {\bf Durability} 
 
 \end{itemize}
+
+Throughout the execution of the Long Lived Transaction, written data
+is collected and stored inside the {\bf TransactionalContext}. Once
+the transaction is finished, written data is {\bf atomically} written
+to the global context, using a regular transaction which simply reads
+data from one domain object (the context) to another (the actual
+objects written during the transaction).
+
+Long Lived Transactions are {\bf consistent} . Data validity is
+guaranteed as the commit algorithm performs a Read Set verification as
+if the whole transaction occurred in a single step.
+
+{\bf Durability} is an ``optional'' property, as not all JVSTM-based
+backends provide persistent support. Those that do however, ensure
+that the effects of Long Lived Transactions as durable, as it works as
+if writes occurred in a single regular transaction (which already
+provides the Durability property).
+
+{\bf Isolation} is perhaps the hardest property to demonstrate.
+
+
 
 \subsection{Ease of Use}
 
