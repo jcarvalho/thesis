@@ -3,14 +3,35 @@
 
 With a proper understanding of the Fenix Framework, this chapter
 describes the solution proposed to solve the problem of relieving
-programmers of the effort of programming Long Lived Transactions. It
-is divided in three parts. Section~\ref{sec:arch} describes the
-architecture of the proposed solution, with the rationales for each
-design decision. Section~\ref{sec:impl} describes how the proposed
+programmers of the effort of programming Long Lived
+Transactions. Section~\ref{sec:challenges} describes the challenges
+faced when implementing Long Lived
+Transactions. Section~\ref{sec:arch} describes the architecture of the
+proposed solution, with the rationales for each design
+decision. Section~\ref{sec:impl} describes how the proposed
 architecture was implemented on top of the Fenix Framework using the
 JVSTM. Finally, Section~\ref{sec:validation} shows that both the
 architecture and implementation fullfil all the requirements, and
 attempts to measure the effort required to use the implementation.
+
+\section{Challenges}
+\label{sec:challenges}
+
+Due to the nature of Software Transactional Memories, there are a few
+challenges when implementing Long Lived Transactions:
+
+\begin{itemize}
+
+\item How is information carried between the various steps of the
+  transaction?
+
+\item How to use a unique representation for every possible value any
+  domain slot can take?
+
+\item How to ensure that multiple users can concurrently access a Long
+  Lived Transaction?
+
+\end{itemize}
 
 \section{Architecture}
 \label{sec:arch}
@@ -51,47 +72,42 @@ provide them for Long Lived Transactions, using the short-lived
 transactions as its building blocks.
 
 Short lived transactions keep all the necessary information in
-transient transaction-local storage (typically in memory). To keep all
-the necessary information available in between the steps of the Long
-Lived Transaction, there needs to be a way to persist it. As the Fenix
-Framework already provides mechanisms to transactionally manage and
-persist information, storing the information in Domain Objects seems
-like a good candidate for the solution.
+transient transaction-local storage (typically in memory), until the
+time they commit, merging the write set with the global context. With
+Long Lived Transactions, merging this write set in each step is not
+possible. 
+
+Recall the Course creation example. Consider that in the first step a
+Course is created with only a name and the department it is associated
+to. Merging the Write Set for this step with the global context would
+leave the system in an inconsistent state in which the departement is
+associated to an unfinished course, as this transitory state would be
+visible to the outside world.
+
+There needs to be a way to persistently store the Write Set of each
+step, outside the global context so that the changes are not visible
+to the outside world. Only upon committing the Long Lived Transaction
+these changes would be merged to the global context, meaning that the
+writes performed by each step are effectively delayed until the end of
+the transaction. Note that for correctness purposes, the Read Set of
+the transaction must also be collected, so that at commit time both
+Read Set and Write Set can be replicated, taking advantage of the
+already existing JVSTM support.
+
+As the main feature of the Fenix Framework is providing mechanisms to
+transactionally manipulate and persist Domain Objects, perhaps it
+would be a good aproach to use regular Domain Objects to store the
+required information.
+
 
 \begin{figure}
-  \centering
-  \begin{tikzpicture}
-
-    \begin{class}[text width=4cm]{TransactionalContext}{0,0}
-      \attribute{version : int} \attribute{state : TransactionState}
-    \end{class}
-
-    \begin{class}[text width=1.6cm,minimum height=5em]{LogEntry}{4,-2}
-    \end{class}
-
-    \begin{class}[text width=3cm]{DomainObject}{8,0}
-    \end{class}
-
-    \draw [umlcd style school] (TransactionalContext) |-
-    node[below]{Read Set} (LogEntry) node[near start, left]{1} node[near
-    end, below]{*};
-
-    \draw [umlcd style school] (TransactionalContext) --
-    node[right]{Write Set} (LogEntry) node[near start, above]{1} node[near
-    end, right]{*};
-
-    \draw [umlcd style school] (DomainObject) -- node[left]{Object}
-    (LogEntry) node[near start, above]{1} node[near end, left]{*};
-
-    \draw [umlcd style school] (DomainObject) |- node[below]{Value}
-    (LogEntry) node[near start, right]{1} node[near end, below]{1};
-
-  \end{tikzpicture}
-
-  \caption{Transactional Context}
-  \label{fig:transactionalContext}
-
+\centering
+\includegraphics[width=0.8\linewidth]{tx-context}
+\caption{Transactional Context's Domain Model}
+\label{fig:transactionalContext}
 \end{figure}
+
+
 
 \subsection{Data Structures}
 
@@ -115,6 +131,35 @@ Read Set and one for the Write Set. A {\bf LogEntry} represents one
 read or written object throughout the transaction, by keeping a
 reference to the object, as well as the value that was written (in
 case the LogEntry belongs to the Write Set).
+
+Once again recall the Course creation example, in which a Long Lived
+Transaction is used to perform a multi-step creation of a new Course
+for a given Department. To perform such operation, a new {\bf
+  TransactionalContext} is created, initially empty
+(Figure~\ref{fig:course-logEntries}a), with an undefined version.
+
+\begin{figure}
+\centering
+\includegraphics[width=1\linewidth]{log-entries}
+\caption{Transactional Context instances in a Course creation transaction}
+\label{fig:course-logEntries}
+\end{figure}
+
+In the first step, a new Course named ``Software Engineering'' is
+created, and it is added to the CS department. As this step performed
+a single read and two writes, three {\bf LogEntries} are created: 
+\begin{inparaenum}[\itshape a\upshape)]
+\item In the Read Set representing the reading of the department's
+  Course list
+\item In the Write Set representing the updaded Course list for the CS
+  department
+\item In the Write Set representing the name slot for the newly
+  created course.
+\end{inparaenum}
+Note that as this step was the first, the version of the {\bf
+  TransactionalContext} is now defined as the ``current''
+version. Figure~\ref{fig:course-logEntries}b shows the contents of the
+context after the execution of the first step.
 
 \subsection{Behaviour ?!?!}
 
@@ -205,10 +250,6 @@ this situation, all the information stored in the corresponding {\bf
 by the transaction are stored exclusively in the context, no further
 action is required.
 
-\subsection{Integration with other APIs}
-
-
-
 \section{Implementation}
 \label{sec:impl}
 
@@ -298,6 +339,33 @@ thread, and if one is present, the following happens:
 
 \end{enumerate}
 
+\begin{lstlisting}[caption={Beginning a new Long Lived Transaction
+    step}]
+
+if (LongTransactionSupport.isInsideContext()) {
+  TransactionalContext context = 
+      LongTransactionSupport.getContextForThread();
+
+  // Begin a new Top Level Write-Transaction
+  JvstmInFenixTransaction underlying =
+      Transaction.begin(false);
+
+  LongLivedTransaction longTx = 
+      new LongLivedTransaction(context, underlying);
+
+  longTx.start();
+
+  transactions.set(new JVSTMTransaction(longTx));
+}
+
+(...)
+
+// In the beginning of the new transaction
+if (context.getVersion() == null) {
+  context.setVersion(Transaction.current().getNumber());
+}
+\end{lstlisting}
+
 The main reason to use a Nested transaction is to allow portability
 across concrete persistence implementations, as the
 LongLivedTransaction will be agnostic to the specific underlying
@@ -307,6 +375,49 @@ LongLivedTransaction holds a reference to the {\bf
 reading and writing.
 
 \subsubsection{Intercepting Reads and Writes}
+
+\begin{lstlisting}[caption={Reading a VBox within a Context}]
+public <T> T getBoxValue(VBox<T> vbox) {
+  // Check the local Write Set
+  T result = getLocalValue(vbox);
+  if (result == null) {
+    if (vbox.getOwnerObject().
+          getClass().isAnnotationPresent(NoLogEntries.class)) {
+      // For classes annotated with @NoLogEntries
+      // check the parent transaction in the current version
+      return parent.getBoxValue(vbox);
+    }
+
+    // Check the TransactionalContext
+    result = lookupBoxValueInContext(vbox);
+    if (result == null) {
+      // Read from the parent
+      result = parent.getPreviousBoxValue(vbox, version);
+      bodiesRead.put(vbox, null);
+    }
+  }
+  return result == NULL_VALUE ? null : result;
+}
+
+private <T> T lookupBoxValueInContext(VBox<T> vbox) {
+  LogEntry writeSetEntry = context.getWriteSet();
+  while (writeSetEntry != null) {
+    if (writeSetEntry.getDomainObject().
+                             equals(vbox.getOwnerObject()) &&
+        writeSetEntry.getSlotName().
+                             equals(vbox.getSlotName())) {
+      String contents = writeSetEntry.getContents();
+      return vbox.getOwnerObject().
+                         getValueFromJSON(vbox.getSlotName(),
+                                                       contents);
+    }
+    writeSetEntry = writeSetEntry.getNextEntry();
+  }
+  return null;
+}
+
+
+\end{lstlisting}
 
 When reading a VBox within a LongLivedTransaction, the following
 steps are executed:
@@ -347,6 +458,50 @@ the transaction. Recall that in each step the Read Set and Write Set
 of the step must contain only the changes to the context that reflect
 what has been read and written. As such, when committing the step, the
 Read Set and Write Set are processed in the following manner:
+
+\begin{lstlisting}[caption={Algorithm for committing a Long Lived
+    Transaction's step}]
+protected void tryCommit() {
+  // Go through the ReadSet and the WriteSet
+  // No consistency validations are performed here, as the 
+  // purpose of this transaction is to manipulate the contents
+  // of the read/write set.
+  Map<VBox, Object> originalWriteSet = 
+                new HashMap<VBox, Object>(boxesWritten);
+  Set<VBox> originalReadSet = new HashSet(bodiesRead.keySet());
+
+  // Clear read/write-set, will be populated with LogEntries
+  boxesWritten.clear();
+  bodiesRead.clear();
+
+  for (Entry<VBox, Object> entry : originalWriteSet.entrySet()) 
+  {
+    VBox<?> vbox = (VBox<?>) entry.getKey();
+
+    JVSTMDomainObject owner = vbox.getOwnerObject();
+
+    // Get the JSON value with a little help
+    // from Generated Code
+    String json = 
+          owner.getJSONStringForSlot(vbox.getSlotName(), 
+                                     entry.getValue());
+
+    // Create or update the LogEntry
+    context.addWriteSetEntry(owner, vbox.getSlotName(), json);
+  }
+
+  for (VBox vbox : originalReadSet) {
+    // Create a new LogEntry if this slot wasn't
+    // read in a previous step
+    context.addReadSetEntry(vbox.getOwnerObject(), 
+                            vbox.getSlotName());
+  }
+
+  // Add the new read/written boxes to the parent transaction,
+  // which will ensure the LogEntries are properly committed
+  super.tryCommit();
+}
+\end{lstlisting}
 
 \begin{enumerate}
 
