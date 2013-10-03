@@ -12,9 +12,9 @@ At the time this document was written, only a handful of Fenix
 Framework backends were able to take advantage of the improvements for
 Long Lived Transactions.
 
-This is greatly in part because the implementation requires
+This is mostly due to the fact that the implementation requires
 multi-versioning support, meaning that when a new value is written for
-a given box, its previous value cannot be Garbage Collected. 
+a given box, its previous value cannot be Garbage Collected.
 
 For in-memory backends this doesn't pose much of a problem, as those
 backends are typically used for testing and demonstrations, and as
@@ -44,29 +44,29 @@ versions sitting around for an indefinite amount of time.
 
 An automated approach to take care of stale transactions would then be
 needed. The solution for this issue is far from trivial, as a Long
-Lived Transaction represents a user's Unit of Work, and as such can't
+Lived Transaction represents a user's Unit of Work, and as such cannot
 be blindly removed. However, as old transactions are likely to be in
-conflict, it would should be safe to discard those, presenting the
-user with a summary of the changes performed by the Long Lived
+conflict, it should be safe to discard those, presenting the user with
+a summary of the changes performed by the Long Lived
 Transaction. Section \ref{sec:conflicts} briefly discusses this in
 regard to conflict resolution.
 
-However, there is a possible solution that doesn't require
+However, there is a possible solution that does not require
 multi-versioning. This solution would restrict the programming model,
 by forcing the programmer to read every piece of data within the first
 transaction step, thus ensuring that the read-set is filled within the
 first step (whose version number is chosen for the transaction). The
 Read Set would also have to store the read value (in a way similar to
-the Write Set), ensuring that all reads could be satisfied.
+the Write Set), ensuring that all future reads could be satisfied.
 
 \section{Conflict Management}
 \label{sec:conflicts}
 
-Perhaps the biggest limitation of this solution is conflict
-management. Unlike a regular transaction, a typical Long Lived
-Transaction has a greater duration and size, thus increasing both the
-probability of conflits and the amount of lost work in case of a
-conflict.
+Perhaps the biggest limitation of this solution is the lack of
+mechanisms for conflict management. Unlike a regular transaction, a
+typical Long Lived Transaction has a greater duration and size, thus
+increasing both the probability of conflits and the amount of lost
+work in case of a conflict.
 
 The solution proposed so far focuses solely in strict correctness,
 providing no mechanisms for conflict reduction and handling. This
@@ -81,7 +81,7 @@ chapters. Now consider that the application used to create such
 Courses uses domain objects to represent the structure of the
 application's menu. With the current implementation of Long Lived
 Transactions, any change to one of the menu items would cause the
-Course creation to be rolled back!
+Course creation to be rolled back.
 
 This is because rendering the Course creation page would read the
 domain objects used to represent the items in the menu (so it could be
@@ -93,8 +93,8 @@ to specify specific classes or slots to have their transactional
 properties relaxed in Long Lived Transactions.
 
 Those classes would still be added to the read set of the Long Lived
-Transaction, however, the transaction would not conflict even if the
-read version is previous than the current version, unless the box has
+Transaction, but, the transaction would not conflict even if the
+version read is previous than the current version, unless the box has
 been written by the transaction (to avoid dirty writes). This would
 require special care from the programmer, as it makes it possible to
 perform operations based on an old version of a part of the data.
@@ -127,13 +127,13 @@ public boolean contains(Object obj) {
 \end{lstlisting}
 
 A write transaction that at some point during its execution invokes
-the {\it contains} method will cause the whole collection to be read.
-A concurrent transaction adding a newly created item to the list and
-commits. This will cause the original transaction to abort, as the
+the {\it contains} method may cause the whole collection to be read.
+If a concurrent transaction adds a newly created item to the list and
+commits, that will cause the original transaction to abort, as the
 read value for collection is no longer the latest value.  As the
 conflicting item was only read inside {\it contains}, the method is
 re-executed with the latest data (in which the new element is in the
-collection). As the outcome of the method is the same, the transaction
+collection). If the outcome of the method is the same, the transaction
 can now commit safely.
 
 There are many challenges and limitations regarding restartable
@@ -147,13 +147,13 @@ clearly defined, individual steps which can be potentially restarted.
 Recall the menu items issue presented above. Consider that between two
 steps of the Long Lived Transaction, one of the menu items has its
 title changed. This means that at least one step of the Long Lived
-Transaction has read old data, that had no impact on the outcome of
+Transaction has read old data, which had no impact on the outcome of
 the step.
 
 With a few modifications to the commit algorithm and data structures,
 it would be possible to restart the conflicting step(s) and check its
 result against the original state. In this example, as the menu change
-didn't affect the operation, the outcome would be the same, and the
+did not affect the operation, the outcome would be the same, and the
 Long Lived Transaction could be committed.
 
 EXPLAIN HOW!
@@ -165,7 +165,7 @@ In the proposed solution, when a conflict happens the only possible
 course of action is to rollback, as it is not possible to restart the
 whole transaction.
 
-If the detected conflict isn't recoverable, it is up to the user to
+If the detected conflict is not recoverable, it is up to the user to
 determine whether the written data can actually be merged with the
 global context. As such, handling conflicts in Long Lived Transactions
 is more of a User Interaction problem than an infrastructural problem.

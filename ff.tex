@@ -6,12 +6,13 @@ that need a {\it transactional and persistent domain
   model.}''\footnote{http://fenix-framework.github.io}
 
 This chapter describes in detail the major components of the Fenix
-Framework, used to implement the solution proposed throughout this
-document. Section \ref{sec:dml} describes the Domain Modelling
-Language, used to describe the application's domain model. Section
-\ref{sec:ff-arch} describes the high-level architecture of the
-Framework, briefly describing its major components and their
-interaction. Section \ref{sec:jvstm} presents the Java Versioned STM
+Framework, which is the Framework used to implement the solution
+proposed throughout this document. Section \ref{sec:dml} describes the
+Domain Modelling Language, used to describe the application's domain
+model. Section \ref{sec:ff-arch} describes the high-level architecture
+of the Framework, briefly describing its major components and their
+interaction. Section \ref{sec:codeGen} describes the process of Code
+Generation. Section \ref{sec:jvstm} presents the Java Versioned STM
 (JVSTM), and its integration with the Fenix Framework. The information
 presented in this chapter is critical to understanding the proposed
 solution, as well as its challenges.
@@ -31,12 +32,12 @@ core concern, allowing for incremental and modular domain definition.
 
 In a DML file, programmers write their domain definition in a
 Java-like language. A class definition consists of the class name, the
-persistent slots (either primitive or value types), and the
-super-class. Listing \ref{list:class-example} shows how the {\it
-  Course} class from Figure \ref{fig:courseDomain} could be described
-in the DML. Note that as arrays are not natively supported, a Value
-Type must be created, describing an array of publications. Value Types
-are described in more detail below.
+entity slots (either primitive or value types), and the super
+class. Listing \ref{list:class-example} shows how the \texttt{Course}
+and \texttt{Department} classes from Figure \ref{fig:courseDomain}
+could be described in the DML. Note that as arrays are not natively
+supported, a Value Type must be created, describing an array of
+publications. Value Types are described in more detail below.
 
 \begin{lstlisting}[caption={DML for the {\it Course} and {\it
       Department} classes},
@@ -53,8 +54,8 @@ class Department {
 }
 \end{lstlisting}
 
-Relations in DML are named, first-class entities which represent
-relationship between two classes. Relations are always bi-directional,
+Relations in DML are named, first-class citizens that represent
+relationships between two classes. Relations are always bi-directional,
 meaning that updating one side of the relation will automatically
 update the other side. Relations can be concealed in one of the sides
 (meaning that it will not be possible to access it), however their
@@ -62,12 +63,12 @@ state is still kept.
 
 It is possible to define {\it one-to-one}, {\it one-to-many} and {\it
   many-to-many relationships}, and it is possible to define boundaries
-on the multiplicity of each relation (for example, a {\it Department} can
-have between 0 and 30 {\it Courses}. Any violation to these
-constraints will put the relation in an inconsistent state and will be
-discarded. 
+on the multiplicity of each relation (for example, a
+\texttt{Department} can have between 0 and 30 \texttt{Courses}). Any
+violation to these constraints would put the relation in an
+inconsistent state and is discarded.
 
-To-Many relations in the Fenix Framework have Set semantics, meaning
+To-many relations in the Fenix Framework have Set semantics, meaning
 that an object can only be present in a relation once. Also, there are
 no ordering guarantees when accessing the relation.
 
@@ -85,12 +86,12 @@ relation DepartmentHasCourses {
 
 Listing~\ref{list:relation-example} shows how the relation presented
 in Figure~\ref{fig:courseDomain} could be described in the DML. The
-relation is given a name that accurately describes the ownership
-relation between the two classes, as well as names to describe the
-role of each class. The multiplicity is defined for each of the roles,
-in this case, one {\it Department} has zero or more {\it Courses}, and
-one {\it Course} has between one and one (exactly one) {\it
-  Department}.
+relation is given a name that accurately describes the relationship
+between the two classes, as well as names to describe the role each
+class takes in the relation. The multiplicity is defined for each of
+the roles, in this case, one {\it Department} has zero or more {\it
+  Courses}, and one {\it Course} has between one and one (exactly one)
+{\it Department}.
 
 
 From the domain definition, the Fenix Framework generates Java getters
@@ -133,11 +134,11 @@ Section~\ref{sec:codeGen}.
 
 \subsection{Value Types}
 
-In the DML there is a distinction between entities (classes and
-relations) and value objects. Whereas an entity is transactional and
-persistent, a value object is immutable and not persistent. Value
-objects are used as the values for slots of DML classes, and must be
-of well-known types, known as Value Types.
+In the DML there is a distinction between entities and value
+objects. Whereas an entity is transactional and persistent, a value
+object is immutable and not persistent. Value objects are used as the
+values for slots of DML classes, and must be of well-known types,
+known as Value Types.
 
 A value type contains information regarding the Java Type (such as
 {\it java.math.BigDecimal}), an alias (such as {\it BigDecimal}), and information
@@ -154,14 +155,14 @@ The Framework knows how to handle Builtin Value Types (i.e. how to
 store/retrieve from persistent support). User-defined, on the other
 hand, require that the programmer specify how the type is
 externalised/internalized. The externalised type must be either a
-Builtin Value Type, or a used-defined one (provided it externalises to
-a builtin).
+Builtin Value Type, or a used-defined type that ultimately is
+externalised to a builtin type.
 
 \subsection{JSON}
 \label{sec:json}
 
 JSON (JavaScript Object Notation) is described as being ``[...] a
-lightweight data-interchange format.''. JSON is quickly becoming the
+lightweight data-interchange format''. JSON is quickly becoming the
 de-facto standard to interchange data across heterogeneous systems,
 replacing XML in many cases.
 
@@ -173,17 +174,17 @@ Types with little effort, as well as simplifying externalisation code.
 
 The Framework also provides support to transform any Value Type
 to/from JSON, meaning that a JsonElement slot is enough to keep any
-value the Fenix Framework is able to handle. As will be presented in
+value the Fenix Framework is able to handle. As shall be presented in
 Chapter~\ref{chap:solution}, this proves to be a crucial feature.
 
 \section{Architecture}
 \label{sec:ff-arch}
 
-In Fenix Framework 1.x (as presented in \cite{fernandes2011strict})
-had a rather monolithic architecture. Transactional support was
-provided by the JVSTM (see Section \ref{sec:jvstm}), and persistence
-was implemented on top of MySQL, leaving the programmer with no other
-choice of technology.
+The first versions of the Fenix Framework (as presented in
+\cite{fernandes2011strict}) had a rather monolithic
+architecture. Transactional support was provided by the JVSTM (see
+Section \ref{sec:jvstm}), and persistence was implemented on top of
+MySQL, leaving the programmer with no other choice of technology.
 
 With the second major version of the Framework (released earlier this
 year), a great architectural shift has occurred. There is now a clear
@@ -207,7 +208,7 @@ Framework.
 \label{fig:ff-arch}
 \end{figure}
 
-The 'DML Compiler' module contains the parser responsible for reading
+The DML Compiler module contains the parser responsible for reading
 DML files and creating an in-memory description of the Domain Model,
 as well as all the necessary classes to represent it. It also contains
 the base {\it DomainObject} interface, which all objects of the Domain
@@ -235,7 +236,7 @@ persistence support, and are required for applications to work.
 One of the major advantages of the Fenix Framework is that
 applications built on top of it are independent of the underlying
 persistence and transactional backend. However, to guarantee this
-property, the modules that form the such applications must be compiled
+property, the modules that form such applications must be compiled
 against the Public API of the Framework.
 
 The public API is split in two major components:
@@ -251,11 +252,11 @@ The public API is split in two major components:
 graph through the {\it DomainRoot} class, the mechanism to retrieve a
 Domain Object from its unique identifier, transaction APIs that can be
 used to either mark a piece of code as transactional (@Atomic
-annotation) or to manually manage the lifecycle of transactions and
+annotation) or to manually manage the lifecycle of transactions, and
 utilities to configure the Framework.
 \end{itemize}
 
-With this separation the classpath of the application modules is not
+With this separation, the classpath of the application modules is not
 'polluted' with implementation details, allowing for a faster
 development and test cycle.
 
@@ -312,16 +313,16 @@ Software Transactional Memory (see Section~\ref{sec:stm}).
 
 The JVSTM uses the concept of Versioned Boxes (VBoxes) to make a
 memory location transactional, keeping the history of values for that
-position, one for each version of the world. Reads and Writes to
-VBoxes are tracked by the JVSTM in a per-transaction basis. 
+position, one for each version of the world. Reads and writes to
+VBoxes are tracked by the JVSTM in a per-transaction basis.
 
 Each transaction begins at a given moment, acquiring the version
 number at that moment. The version number is used during the
 transaction to ensure that all reads get the correct value at the time
-of the transaction's start, thus providing Snapshot Isolation. This
+of the transaction's start, thus providing Opacity guarantees. This
 allows for conflict-free read-only transactions, as concurrent
 transactions writing to the read boxes will write a new version
-without overwriting its value.
+instead of overwriting its previous value.
 
 \subsection{Integration}
 
@@ -340,12 +341,12 @@ the JVSTM is used.
 In this backend, Base classes use VBoxes to transactionally store the
 value objects, thus taking advantage of the JVSTM. The generated
 getters and setters are backed by VBox.set() and VBox.get(), and can
-only be invoked from within a valid transaction.
+only be invoked from within a transaction.
 
 \subsection{VBoxes}
 
 A plain JVSTM VBox is simply a wrapper to a Linked-List of pairs
-[Version, Value], containing the history is values for that
+[Version, Value], containing the history of values for that
 box, as seen in Figure \ref{fig:vbox}.
 
 \begin{figure}
@@ -364,9 +365,9 @@ Garbage-Collected and reloaded from persistent support on-demand.
 
 \subsubsection{VBoxes for slots}
 
-There are two layouts when mapping VBoxes in DomainObject slots: 1)
-Using one VBox to keep the entire state of the object (One-Box) and 2)
-Using one VBox per slot (Multi-Box).
+There are two layouts for Domain Object's slots: {\it 1)} Using one VBox to
+keep the entire state of the object (One-Box), and {\it 2)} Using one VBox
+per slot (Multi-Box).
 
 The first layout suffers from a higher number of conflicts, as reading
 one slot will conflict with writing another slot on the same object
@@ -403,13 +404,13 @@ to-many side of the relation. For each to-many relation, a {\it
 object representing the B+Tree.
 
 The Fenix Framework provides an implementation of persistent B+Trees
-that doesn't use to-many relations (by design, so it can be used to
+that does not use to-many relations (by design, so it can be used to
 implement them). In this implementation, each node of the tree is a
 domain object containing only a reference to its parent and its
 sibling. Inner nodes use an immutable TreeMap wrapper to keep indexed
 references to the nodes they point to. Leaf nodes follow the same
 strategy, keeping the mapping between keys and the objects they point
-to (In reality they can be used to point at anything, however for this
+to (in reality they can be used to point at anything, however for this
 document we are only interested in B+Trees containing domain objects).
 
 As a B+Tree is generically a key-value map, its usage can be twofold:
