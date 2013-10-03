@@ -2,7 +2,8 @@
 \label{chap:ff}
 
 ``Fenix Framework allows the development of Java-based applications
-that need a {\it transactional and persistent domain model.}''
+that need a {\it transactional and persistent domain
+  model.}''\footnote{http://fenix-framework.github.io}
 
 This chapter describes in detail the major components of the Fenix
 Framework, used to implement the solution proposed throughout this
@@ -93,12 +94,41 @@ one {\it Course} has between one and one (exactly one) {\it
 
 
 From the domain definition, the Fenix Framework generates Java getters
-and setters for the properties and relations. For each DML class, a
-Java class is created, along with a {\it Base} class, containing the
-generated methods, as well as internal helper methods used to persist
-the properties. As such, Base classes contain the application's
-structure, and the non-Base classes contain the application's
-behaviour. Generation of base classes is described in more detail in
+and setters for the properties and relations. For each class described
+in the DML, two Java classes are created: the domain class, in which
+programmers can include business logic, and an {\it Base} (which the
+domain class extends) containing 
+
+Consider the DML on
+Listing~\ref{list:class-example}. Listing~\ref{list:courseCode} shows
+the Code generated for the Course class and 
+
+\begin{lstlisting}[caption={Generated Course class},
+label={list:courseCode}]
+public class Course extends Course_Base {
+  public Course() {
+    super();
+  }
+}
+
+public abstract class Course_Base extends
+                                       AbstractDomainObject {
+
+  public String getName() { /* Generated */ }
+  public void setName(String value) { /* Generated */ }
+
+  public String getObjectives() { /* Generated */ }
+  public void setObjectives(String value) { /* Generated */ }
+
+  (...)
+
+  public Department getDepartment() { /* Generated */ }
+  public void setDepartment(Department value) { /* Generated */ }
+
+}
+\end{lstlisting}
+
+Generation of base classes is described in more detail in
 Section~\ref{sec:codeGen}.
 
 \subsection{Value Types}
