@@ -3,11 +3,11 @@
 \section{What are Long-Lived Transactions?}
 \label{sec:what}
 
-As previously described, Long-Lived Transactions are transactions with
-a lifetime larger than a typical database transaction. To better
-understand this concept, consider the example shown in
-Figure~\ref{fig:courseDomain}, corresponding to a simplified fragment
-of the domain model for an application in the higher education domain.
+Long-Lived Transactions are transactions with a lifetime larger than a
+typical database transaction. To better understand this concept,
+consider the example shown in Figure~\ref{fig:courseDomain},
+corresponding to a simplified fragment of the domain model for an
+application in the higher education domain.
 
 \begin{figure}
   \centering
@@ -85,7 +85,7 @@ database transaction is that the programmer can manipulate all the
 domain objects involved directly. The order in which the modifications
 to the objects are performed is irrelevant, as long as the domain is
 consistent when the transaction is committed. This is the semantics
-typically expected by a programmer of such applications: there may be
+typically expected by a programmer of such applications: There may be
 instants in which some domain objects are in an inconsistent state
 (e.g. before defining the course's bibliography), but this
 inconsistent state will never be seen by the other users of the
@@ -98,19 +98,19 @@ The model described in the previous scenario, whereas simple and easy
 to implement, may not be suited for every situation. Imagine that
 instead of four attributes, Course had 50 attributes. It would then be
 unfeasible to ask the user to fill everything out in a single web
-page. So, the logical solution would be to split the various
+page. So, one possible solution would be to split the various
 attributes in multiple pages, accounting for multiple user
 interactions.
 
 Let us now assume that the creation of a course is made throughout
 three interactions. In the first interaction, the user selects the
-course's name, in the second interaction, the user introduces the
-objectives and credits, and in the final interaction, the user selects
+course's name; in the second interaction, the user introduces the
+objectives and credits; and in the final interaction, the user selects
 the bibliography, thus creating the course.
 
 At first glance, it would seem quite easy for a programmer to change
 the logic programmed in the first scenario to meet the new
-requirements: the programmer would simply have to split the code
+requirements: The programmer would simply have to split the code
 performed in a single request into three smaller parts, each to be
 executed in one request.
 
@@ -152,7 +152,7 @@ The programmer has several choices for the implementation:
   that are still in an inconsistent state.
 \end{enumerate}
 
-It should be clear that any of those solutions is far from trivial to
+It should be clear that any of these solutions is far from trivial to
 implement, has some serious consequences (presented below), and, as I
 will demonstrate, is an unnecessary burden to the programmer.
 
@@ -160,8 +160,8 @@ will demonstrate, is an unnecessary burden to the programmer.
 
 Given that atomicity and isolation are broken due to the fact that
 each interaction with the user is done within its own database
-transaction, we could think the solution would be to keep the database
-transaction open during the whole business transaction.
+transaction, we could think that the solution would be to keep the
+database transaction open during the whole business transaction.
 
 However, most modern Relational Database Management Systems (RDBMSs)
 do not cope well with transactions that are open for arbitrarily large
@@ -176,19 +176,19 @@ In this approach, a series of objects similar to the domain objects
 are created, and must be managed manually, kept in the user's session
 context, outside the domain.
 
-As the complexity of the domain, and the number of objects manipulated
-by the operation, grow, it becomes harder for the programmer to
-manually manage the data that must be kept. Ultimately, there is a
+As the complexity of the domain and the number of objects manipulated
+by the operation grows, it becomes harder for the programmer to manage
+manually all of the data that must be kept. Ultimately, there is a
 copy of the whole domain stored in the user's session, waiting for the
-last transaction to transactionally update the domain with all the
-information input by the user.
+last transaction to update the domain with all the information entered
+by the user.
 
 This is the opposite of what would be desirable for the programmer:
-she should be able to operate directly on the domain.
+She should be able to operate directly on the domain.
 
 \subsection{Changing the domain model}
 
-Now imagine that an additional requirement is added to the system: the
+Now imagine that an additional requirement is added to the system: The
 user may be allowed to log off in the middle of the process, and, upon
 logging back in, continue the work where she left off. Additionally,
 anyone else in the user's department should be able to pick up where
@@ -209,11 +209,11 @@ model, by adding a new attribute to the objects being modified (in
 this case, Course, as shown in
 Figure~\ref{fig:courseDomainState}). The {\bf status} attribute
 indicates whether the course is in a consistent state (Published) or
-not (Draft). Adding this attribute has a cost: not only the domain
+not (Draft). Adding this attribute has a cost: Not only the domain
 becomes polluted with information that is not relevant to the object
 being modeled, but this solution affects other functional code across
-the application, because course listings must filter out courses that
-are still in the Draft status, scattering the filtering code
+the application (e.g., course listings must filter out courses that
+are still in the Draft status), scattering the filtering code
 throughout the application.
 
 \begin{figure}

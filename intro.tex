@@ -1,6 +1,6 @@
 \chapter{Introduction}
 
-For Many years, enterprise applications were developed using
+For many years, enterprise applications were developed using
 two-tiered architectures. In such architectures, there was typically a
 mainframe with great computational power, which served requests from
 thin clients. As hardware evolved over the years, so did the
@@ -30,20 +30,20 @@ on top of a Persistent STM, by providing infrastructural-level
 support, relieving the programmer from all the effort that is required
 to implement them.
 
-In this project, I aim at adding support for Long-Lived Transactions
-in applications with Rich Domain Models.  A Rich Domain Model is ``An
+In this thesis, I aim at adding support for Long-Lived Transactions in
+applications with Rich Domain Models.  A Rich Domain Model is ``An
 object model of the domain that incorporates both behaviour and
 data.``, as described by \cite{fowler2003patterns}, meaning that
 domain objects hold both their data and the business logic that
-manipulates them, as opposed to Anemic Domain Model, in which the
+manipulates them, as opposed to an Anemic Domain Model, in which the
 domain objects simply contain data, and the business operations are
-handled by a separate Service layer. Also, in a Rich Domain Model,
+handled by a separate Service Layer. Also, in a Rich Domain Model,
 each domain object typically has an arbitrarily complex web of
 associations, multivalued attributes, inheritance, and is typically a
 part of some Object-Oriented design patterns.
 
 My main target throughout this project are enterprise applications in
-which the Domain Objects are persistent, transactionally updated, and
+which the domain objects are persistent, transactionally updated, and
 handled transparently at an infrastructural level (meaning that the
 programmer should be mostly unaware of the persistence/data tier).
 
