@@ -1,21 +1,61 @@
 \chapter{Optimization}
 
 The solution presented in Chapter~\ref{chap:solution}, despite
-providing correctness guarantees and ease of use, performs poorly in
-even trivial test cases. This chapter describes a series of
+providing correctness guarantees and ease of use, performs poorly even
+in trivial test cases. This chapter describes a series of
 optimizations made to keep the overhead as low as possible, without
 sacrificing correctness.
 
 \section{Example Application}
 
-To perform accurate measurements, a sample banking application was
-developed. In this application's domain there is a central Bank with
-Customers, which in turn have their accounts. For each account there
-is a slot representing the account's balance, and there is a method to
-show a customer's balance (by summing the balance of all his
-accounts). Every time a transaction is done, a new TransactionRecord
-is created, containing a timestamp, the origin and destination
-accounts, as well as the amount transfered.
+To perform accurate measurements, I developed a sample banking
+application. In this application's domain (see
+Listing~\ref{list:bank-dml}) there is a central Bank with Customers,
+which in turn have their accounts. For each account the application
+keeps its balance, and there is a method to show a
+customer's balance (by summing the balance of all his accounts). Every
+time a transaction is done, a new TransactionRecord is created,
+containing a timestamp, the origin and destination accounts, as well
+as the amount transfered.
+
+\begin{lstlisting}[caption={Domain Model for the Banking Application},
+  label={list:bank-dml}]
+class Bank;
+class Customer;
+
+class Account {
+  Double balance;
+  DateTime opened;
+}
+
+class TransactionRecord {
+  DateTime when;
+  Double amount;
+}
+
+relation CustomerHasAccounts {
+  Customer playsRole owner {
+    multiplicity *;
+  }
+  Account playsRole account {
+    multiplicity *;
+  }
+}
+
+relation TransactionRecordHasFrom {
+  Account playsRole from;
+  TransactionRecord playsRole outgoingTransaction {
+    multiplicity *;
+  }
+}
+
+relation TransactionRecordHasTo {
+  Account playsRole to;
+  TransactionRecord playsRole incomingTransaction {
+    multiplicity *;
+  }
+}
+\end{lstlisting}
 
 In this scenario, a Business Transaction will be made of several
 banking transactions throughout a series of steps. This is the perfect
@@ -68,28 +108,28 @@ sections present those optimizations.
 
 \begin{figure}
 \centering
-\includegraphics[width=0.7\linewidth]{reg-time}
+\includegraphics[width=0.9\linewidth]{time-regular}
 \caption{Running time with regular transactions}
 \label{fig:regTime}
 \end{figure}
 
 \begin{figure}
 \centering
-\includegraphics[width=0.7\linewidth]{long-time-v1}
+\includegraphics[width=0.9\linewidth]{time-long-v1}
 \caption{Running time with Long Lived Transaction steps}
 \end{figure}
 
 \begin{figure}
 \centering
-\includegraphics[width=0.6\linewidth]{reg-box}
+\includegraphics[width=0.9\linewidth]{box-regular}
 \caption{Number of boxes read on a regular transaction}
 \label{fig:reg-box}
 \end{figure}
 
 \begin{figure}
 \centering
-\includegraphics[width=0.6\linewidth]{long-box-v1}
-\caption{Running time with Long Lived Transaction steps}
+\includegraphics[width=0.9\linewidth]{box-long-v1}
+\caption{Number of boxes read using Long Lived Transaction steps}
 \label{fig:long-box-v1}
 \end{figure}
 
@@ -152,24 +192,9 @@ impractical, as every {\it getBoxValue} operation required potentially
 traversing the whole list.
 
 \begin{figure}
-  \centering
-  \begin{tikzpicture}
-
-\begin{class}[text width=5cm]{TransactionalContext}{5,0}
-\end{class}
-
-\begin{class}[text width=2cm]{LogEntry}{5,-2}
-\end{class}
-
-\begin{class}[text width=2cm]{LogEntry }{10,-2}
-\end{class}
-
-\association{TransactionalContext}{}{}{LogEntry}{writeSet}{0..1}
-\unidirectionalAssociation{LogEntry}{nextEntry}{}{LogEntry }
-
-\end{tikzpicture}
-
-\caption{}
+\centering
+\includegraphics[width=0.7\linewidth]{tx-context-v1}
+\caption{LogEntry linked lists}
 \label{fig:linkedList}
 \end{figure}
 
@@ -193,7 +218,29 @@ With this approach, looking up a DomainSlotKey in a
 TransactionalContext means that the BPlusTree is indexed using the
 DomainSlotKey, and as such, lookup times are now {\it O(log(n))}.
 
-FIGURAS
+Figure
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{time-long-bplus}
+\caption{Running time using BPlusTrees}
+\label{fig:runtimeBPlus}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{comparison-bplus}
+\caption{Running time comparison using BPlusTrees}
+\label{fig:comparisonBPlus}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{box-long-bplus}
+\caption{Box reads using BPlusTrees}
+\label{fig:boxesBPlus}
+\end{figure}
+
 
 \section{Removing LogEntries}
 
@@ -251,6 +298,36 @@ impact on lookups. On the other hand, applications with a small number
 of large steps should set the threshold lower than the average size of
 a step, so that it there is no need to duplicate a potentially large
 map. 
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{time-long-final}
+\caption{Running time in the Final Implementation}
+\label{fig:runtimeFinal}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{comparison-final}
+\caption{Running time comparison for the Final Implementation}
+\label{fig:comparisonFinal}
+\end{figure}
+
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{box-long-final}
+\caption{Box reads using Long Lived Transactions - Final Version}
+\label{fig:boxesFinal}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{box-comparison-final}
+\caption{Box reads comparison for the Final Implementation}
+\label{fig:boxComparisonFinal}
+\end{figure}
+
 
 \section{Final Performance Analysis}
 
