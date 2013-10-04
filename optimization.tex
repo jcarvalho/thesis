@@ -322,8 +322,8 @@ regular version. However, the growth rate (while linear) is still
 bigger than the original, with an average 4.4x performance loss. One
 of the big contributors for this speed improvement seems to be the
 number of Box Reads that happens throughout the transaction. Whereas
-in the original implementation this number reached over 1.5B, it is
-now reduced to about 3.1M.
+in the original implementation this number reached over 8.7B, it is
+now reduced to about 2.1M.
 
 \begin{figure}
 \centering
@@ -413,7 +413,7 @@ implementation using regular
 transactions. Figure~\ref{fig:comparisonFinal} shows a runtime
 comparison between using regular transactions and the final
 implementation of Long Lived Transactions: The speed down is now under
-1.8x.
+1.4x.
 
 The number of Box Reads is also very close to the regular transaction
 version, adding very little overhead. As the Write and Read Sets are
