@@ -19,7 +19,7 @@ containing a timestamp, the origin and destination accounts, as well
 as the amount transfered.
 
 \begin{lstlisting}[caption={Domain Model for the Banking Application},
-  label={list:bank-dml}]
+  label={list:bank-dml},float]
 class Bank;
 class Customer;
 
@@ -31,6 +31,13 @@ class Account {
 class TransactionRecord {
   DateTime when;
   Double amount;
+}
+
+relation BankHasCustomers {
+  Customer playsRole customer {
+    multiplicity *;
+  }
+  Bank playsRole bank;
 }
 
 relation CustomerHasAccounts {
@@ -57,54 +64,144 @@ relation TransactionRecordHasTo {
 }
 \end{lstlisting}
 
-In this scenario, a Business Transaction will be made of several
-banking transactions throughout a series of steps. This is the perfect
-candidate for a Long Lived Transaction.
+In this scenario, a Business Transaction will consist of several
+banking transactions, spread throughout a series of Business
+Operations. This is the perfect candidate for a Long Lived
+Transaction.
+
+In the {\it regular} scenario, each business operation will run within
+a regular JVSTM transaction (and thus every intermediate state is
+visible to the outside world), whereas in the {\it Long Lived}
+scenario the Business Transaction is mapped into a Long Lived
+Transaction, and each individual operation runs within an LLT step
+(meaning that intermediate state will not be visible to the outside).
 
 With the support presented in previous sections, the programmer simply
 writes the application's code as he would without considering Long
 Lived Transactions. No changes to the data structures and business
-logic are required.
+logic are required. Listing~\ref{lst:invoc-diff} shows the two methods
+used to invoke both versions under test. Notice that they both look
+very similar as they both invoke the \texttt{doScript} method, the
+only difference is that in the LLT version, a new
+\texttt{TransactionalContext} is created and bound to the current
+thread.
+
+\begin{lstlisting}[caption={Invoking the business operation},
+ label={lst:invoc-diff},float]
+public void doRegular() {
+  doScript("regular");
+}
+
+public void doLongTx() {
+  TransactionalContext context = createContext();
+  LongTransaction.setContextForThread(context);
+  doScript("long");
+  LongTransaction.removeContextFromThread();
+}
+\end{lstlisting}
 
 Using this banking domain, a sample application was developed. In this
-fictitious scenario, the bank would start with a certain number of
-customers (this number was configurable so different parameters could
-be measured), create a Long Lived Transaction with a configurable
-number of steps. Within each step, new customers and accounts would be
-created, money would be shuffled between all the bank's accounts
-(creating a new TransactionRecord for each transaction), and the total
-balance is calculated. This means that in each step: 1) Every object
-is read, 2) Many objects are written, 3) Many objects are created.
+fictitious scenario, the bank starts with a certain number of
+customers (this number is configurable so that different parameters
+may be measured), and creates a Long Lived Transaction with a
+configurable number of operations. Within each operation, new
+customers and accounts are created, money is be shuffled between all
+the bank's accounts (creating a new TransactionRecord for each
+transaction), and the total balance is calculated. This means that in
+each step: (1) Every object in the system is read, (2) Many objects
+are written and (3) Many new objects are created.
+
+\begin{lstlisting}[caption={Code for the Business Operation},
+float]
+// Bank class
+public double getTotalMoney() {
+  double money = 0;
+  for (Customer customer : getCustomerSet())
+    money += customer.getTotalMoney();
+  return money;
+}
+
+// Customer class
+public double getTotalMoney() {
+  double money = 0;
+  for (Account account : getAccountSet())
+    money += account.getBalance();
+  return money;
+}
+
+public void shuffle() {
+  Account firstAccount = getRandomAccount();
+  for (Account account : getAccountSet()) {
+    if (!firstAccount.equals(account)) {
+      account.transfer(account.getBalance(), firstAccount);
+    }
+  }
+}
+
+// Account class
+public void transfer(Double amount, Account to) {
+  this.withdraw(amount);
+  to.deposit(amount);
+  addOutgoingTransaction(new TransactionRecord(to, amount));
+}
+
+// Benchmark class
+@Atomic(mode = TxMode.WRITE)
+public void doOperation() {
+  createCustomers();
+  logger.info("Bank has {} money.", bank.getTotalMoney());
+  shuffleMoney();
+  shuffleMoney();
+  logger.info("Bank has {} money.", bank.getTotalMoney());
+  createCustomers();
+  shuffleMoney();
+  logger.info("Bank has {} money.", bank.getTotalMoney());
+}
+
+private void createCustomers() {
+  for (int i = 0; i < ACCOUNTS; i++) {
+    Customer customer = new Customer("Customer " + counter++);
+    customer.addAccount(new Account(200d));
+    customer.addAccount(new Account(100d));
+  }
+}
+
+private void shuffleMoney() {
+  for (Customer customer : bank.getCustomerSet())
+    customer.shuffle();
+}
+\end{lstlisting}
+
 
 \section{Initial Performance Analysis}
 
 Figure~\ref{fig:regTime} shows the running time for a varying number
-of iterations on the application presented above. As expected, the
-running time grows linearly as the number of iterations increases.
+of operations of the application presented above. As expected, the
+running time grows linearly as the number of operations increases.
 
-When looking at the Long Lived version (where every iteration is a
+When looking at the Long Lived version (where every operation is a
 step of a large Long Lived Transaction), performance quickly degrades
-as the number of iterations grows {\it O(n3)}. The main reason for
-this performance hit is that every read box will cause many other
-boxes to be read (instead of just reading the box directly, the whole
-write set must be traversed, meaning that many more boxes are read
-along the way, and many more boxes will be read as the transaction
-grows in size). Recall from Chapter~\ref{chap:ff} that in the JVSTM
-using a multi-box layout, each slot of an object is kept in a separate
-box, and as such reading a single Log Entry will cause at least 3
-boxes to be read: the slot name, the target object, and the next box
-in the list.
+as the number of operations grows. The main reason for this
+performance hit is that every box read will cause many other boxes to
+be read (instead of just reading the box directly, all LogEntries
+representing the write set must be traversed, meaning that many more
+boxes are read along the way, and many more boxes will be read as the
+transaction grows in size). Recall from Chapter~\ref{chap:ff} that in
+the JVSTM using a multi-box layout, each slot of an object is kept in
+a separate box, and as such reading a single Log Entry will cause at
+least 3 boxes to be read: the slot name, the target object, and the
+next box in the list.
 
 Figure~\ref{fig:reg-box} shows that in a regular transaction, the
-number of read boxes is linear to the number of iterations, matching
-the linear running time. The same behaviour is observed with Long
-Lived Transactions. Figure~\ref{fig:long-box-v1} shows that the number
-of boxes read grows following the same pattern as the running time.
+number of boxes read grows slowly as with the number of
+operations. The same behaviour is observed with Long Lived
+Transactions: Figure~\ref{fig:long-box-v1} shows that the number of
+boxes read grows following the same pattern as the running time.
 
 As reading boxes is one of the major sources of the poor performance
-results of the implementation, various improvements were made to both
-improve reading boxes and reduce the number of boxes read. The next
-sections present those optimizations.
+results of this implementation, I made several improvements regarding
+the number of boxes read and boxes written. The next sections present
+those optimizations.
 
 \begin{figure}
 \centering
@@ -144,14 +241,14 @@ the slot's value. Using the same objects to represent both sets proved
 to be quite expensive, as the Read Set only cares about which slots
 were read, completely ignoring its value.
 
-Carefully looking at the nature of the Read Set, one comes to realise
-that it is only necessary to store the pairs [DomainObject, Slot] read
-by the transaction (the actual version read is not relevant, as it
-will always be coherent with the transaction's version).
+By analysing the nature of the Read Set, we may conclude that it is
+only necessary to store the pairs [DomainObject, Slot] read by the
+transaction (the actual version read is not relevant, as it will
+always be coherent with the transaction's version).
 
 As such, the Read Set has been replaced by an immutable
 ValueType\footnote{ValueTypes are explained in detail in Chapter
-  \ref{chap:ff}}, containing a set of DomainSlotKey's (an immutable,
+  \ref{chap:ff}.}, containing a set of DomainSlotKey's (an immutable,
 lightweight object representing the pair [DomainObject, Slot]), stored
 directly into the {\it TransactionalContext}.
 
@@ -171,25 +268,26 @@ As described in Chapter \ref{chap:ff}, the Fenix Framework uses
 BPlusTrees and other collections to implement to-many relations. These
 collections are transparently handled by the Framework, and are
 implemented using regular Domain Objects (such as Leaf Nodes and Inner
-Nodes). It is then desirable to store the correct values of those
-objects within the context of a Long Transaction, as changes in
-relations are part of our transparent programming model.
+Nodes). As keeping track of changes in relations is a requirement for
+our implementation, it is critical that changes to BPlusTrees are
+correctly tracked.
 
-This posed a great issue, as conceptually one {\it
-  TransactionalContext} has many {\it LogEntries} in both its Read and
-Write Sets. If this relation ware to be implemented using a regular
-one-to-many relation, a BPlusTree would be generated by the
-Framework. But as BPlusTrees cannot be kept out of the
-TransactionalContext, they could not be used to implement this relation.
+This posed a great issue, as conceptually one
+\texttt{TransactionalContext} has many \texttt{LogEntries} in both its
+Read and Write Sets. If this relation were to be implemented using a
+regular one-to-many relation, a BPlusTree would be generated by the
+Framework. But as BPlusTrees must be tracked by the
+\texttt{TransactionalContext}, they could not be used to implement
+this relation.
 
-The initial solution consisted on implementing the relation using a
-Linked List, in which a LogEntry would be directly connected to the
-next one in the list, keeping the list sorted by insertion
-order. Figure~\ref{fig:linkedList} shows how this was designed..This
-approach proved to be quite inefficient, as lookups in the Write Set
-were {\it O(n)} in the number of written objects, making it
-impractical, as every {\it getBoxValue} operation required potentially
-traversing the whole list.
+The initial approach to this problem consisted on implementing the
+relation using a Linked List, in which a LogEntry would be directly
+connected to the next one in the list, keeping the list sorted by
+insertion order. Figure~\ref{fig:linkedList} shows how this was
+designed. This approach proved to be quite inefficient, as lookups in
+the Write Set were {\it O(n)} in the number of written objects, making
+it impractical, as every \texttt{getBoxValue} operation required
+potentially traversing the whole list.
 
 \begin{figure}
 \centering
@@ -198,12 +296,12 @@ traversing the whole list.
 \label{fig:linkedList}
 \end{figure}
 
-To solve this issue, a specialised WriteSetBPlusTree was
-developed. The major difference a WriteSetBPlusTree and a regular
-BPlusTree is that the former is designed to be kept out of the scope
-of the TransactionalContext, making it possible to use to implement
-the one-to-many relation between a TransactionalContext and its
-LogEntries.
+To solve this issue, a specialised \texttt{WriteSetBPlusTree} was
+developed. The major difference between a \texttt{WriteSetBPlusTree}
+and a regular BPlusTree is that the former is designed to be kept out
+of the scope of the TransactionalContext, making it possible to use it
+to implement the one-to-many relation between a TransactionalContext
+and its LogEntries.
 
 Another advantage of directly using a BPlusTree is that it is possible
 to take full advantage of all its features. Generically speaking, a
@@ -218,7 +316,14 @@ With this approach, looking up a DomainSlotKey in a
 TransactionalContext means that the BPlusTree is indexed using the
 DomainSlotKey, and as such, lookup times are now {\it O(log(n))}.
 
-Figure
+In Figures~\ref{fig:runtimeBPlus} and \ref{fig:comparisonBPlus} we can
+see that the running time using BPlusTrees is now similar to the
+regular version. However, the growth rate (while linear) is still
+bigger than the original, with an average 4.4x performance loss. One
+of the big contributors for this speed improvement seems to be the
+number of Box Reads that happens throughout the transaction. Whereas
+in the original implementation this number reached over 1.5B, it is
+now reduced to about 3.1M.
 
 \begin{figure}
 \centering
@@ -268,17 +373,17 @@ picture, as the only extra piece of information they provided was the
 JSON contents of the slot, which could be embedded directly into the
 WriteSet object.
 
-The issue with this approach, is that due to the immutability
+The issue with this approach is that, due to the immutability
 requirement, every time a batch of entries was inserted, the whole Map
 had to be duplicated, which was rather wasteful both in terms of time
 and allocated memory. So, instead of duplicating the whole Map, the
 WriteSet is actually a Linked-List of Maps, containing one node per
-transaction step. This meant that the performance of lookups is now
+transaction step. This means that the performance of lookups is now
 {\it O(s*log(n))}, {\it n} being the average size of each step, and
 {\it s} the number of steps (in which something is written) of the
 transaction.
 
-There is however a tradeoff. Transactions with a small number of large
+There is, however, a tradeoff. Transactions with a small number of large
 steps (which is the typical use case) are greatly improved (as lookups
 in an in-memory hash map are fast), however transactions with a large
 number of small steps take a major performance hit, as a new node is
@@ -293,11 +398,42 @@ to be lower or higher according to the usage patterns of the
 application.
 
 Applications with a large number of small steps benefit from a large
-threshold, as insertions with be quite cheap and have little to no
+threshold, as insertions will be quite cheap and have little to no
 impact on lookups. On the other hand, applications with a small number
 of large steps should set the threshold lower than the average size of
-a step, so that it there is no need to duplicate a potentially large
-map. 
+a step, so that there is no need to duplicate a potentially large map.
+
+\section{Final Performance Analysis}
+
+After applying all the optimizations described throughout this
+chapter, the solution provides quite competitive
+results. Figure~\ref{fig:runtimeFinal} shows the running time on this
+implementation. The growth rate is now very similar to the
+implementation using regular
+transactions. Figure~\ref{fig:comparisonFinal} shows a runtime
+comparison between using regular transactions and the final
+implementation of Long Lived Transactions: The speed down is now under
+1.8x.
+
+The number of Box Reads is also very close to the regular transaction
+version, adding very little overhead. As the Write and Read Sets are
+now represented in specialised data structures, it is no longer
+necessary to read vast amounts of VBoxes just to determine whether a
+given element is in one of the sets. Figure~\ref{fig:boxesFinal} shows
+the total number of Box Reads, and Figure~\ref{fig:boxComparisonFinal}
+shows the number of Box Reads side-by-side in the Regular and Long
+Lived Transaction implementations.
+
+There is also one very important measurement that has not been
+mentioned thus far: The performance impact of the solution in regular
+transactions. A solution in which Long Lived Transactions are
+performant at the cost of having expensive regular transactions is not
+an acceptable one. For the proposed solution, there close to zero
+overhead on starting regular transactions. The only performance hit is the
+added verification upon starting a new transaction, to check whether
+the current thread if bound to a \texttt{TransactionalContext}. Other
+than that, no changes were made that would affect the performance of
+regular transactions.
 
 \begin{figure}
 \centering
@@ -329,8 +465,3 @@ map.
 \end{figure}
 
 
-\section{Final Performance Analysis}
-
-After applying all of the optimizations described in this chapter, the
-final solution presents a very competitive performance, keeping the
-slowdown factor below 2.
