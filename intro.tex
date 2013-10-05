@@ -15,20 +15,26 @@ Because data persistency is a critical requirement in enterprise
 applications, STMs have been extended to collaborate with persistent
 storage systems, giving birth to the concept of {\it Persistent
   Software Transactional Memory} \cite{fernandes2011strict}. Thus,
-several enterprise applications, such as the FenixEDU web application,
-are now using PSTMs for transactional support.
+several enterprise applications, such as the FenixEdu\footnote{See
+  \texttt{http://www.fenixedu.org}} web application, are now using
+PSTMs for transactional support.
 
-Long-Lived Transactions were first described in 1981 as ``[..]
+Long-Lived Transactions (LLTs) were first described in 1981 as ``[..]
 transactions with lifetimes of a few days or
 weeks''\cite{gray1981transaction}, and can be found in many enterprise
 applications. Due to their duration, Long-Lived Transactions pose some
 challenges not encountered in short transactions, and thus, many
 attempts have been made to support them.
 
-My thesis consists on making Long-Lived Transactions easier to develop
-on top of a Persistent STM, by providing infrastructural-level
-support, relieving the programmer from all the effort that is required
-to implement them.
+\section{Thesis Statement}
+
+My thesis statement is that it is possible to relieve programmers of
+the effort of developing Long Lived Transactions on top of a
+Persistent STM, by providing infrastructural-level support. Such
+support is either non existing or lackluster in current transaction
+support systems.
+
+I believe that it is possible to provide a 
 
 In this thesis, I aim at adding support for Long-Lived Transactions in
 applications with Rich Domain Models.  A Rich Domain Model is ``An
@@ -42,25 +48,39 @@ each domain object typically has an arbitrarily complex web of
 associations, multivalued attributes, inheritance, and is typically a
 part of some Object-Oriented design patterns.
 
-My main target throughout this project are enterprise applications in
+The main target enterprise applications in
 which the domain objects are persistent, transactionally updated, and
 handled transparently at an infrastructural level (meaning that the
 programmer should be mostly unaware of the persistence/data tier).
 
-This document is organized as follows. In Section 2, I will present
-Long-Lived Transactions in more detail, as well as explaining why they
-are difficult to implement without infrastructural support. In Section
-3, I present existing work on Long-Lived Transaction implementation
-and support, as well as explain why they are not suited for our
-requirements. In Section 4, I present the architecture of my solution,
-and describe the Fenix Framework, which will be the base for this
-work. In Section 5, I explain how the implementation will be
-evaluated. 
+\section{Contributions}
 
-Finally, in Section 6, I shall draw some conclusions.
+\section{Document Structure}
 
+This document is organised as follows:
 
-% Local Variables:
-% mode: latex
-% TeX-master: "thesis"
-% End:
+\begin{itemize}
+
+\item {\bf Chapter 2} Describes in greater detail what are Long Lived
+  Transactions, why they are difficult to implement, and the
+  requirements for this solution
+
+\item {\bf Chapter 3} Presents existing work on Long Lived Transaction
+  implementation as support and explains why current solutions are not
+  fit for the proposed requirements
+
+\item {\bf Chapter 4} Describes the Fenix Framework, used to implement
+  Long Lived Transactions
+
+\item {\bf Chapter 5} Presents in great detail a solution for the
+  proposed problem
+
+\item {\bf Chapter 6} Presents some benchmarks for the proposed
+  solution and some optimizations
+
+\item {\bf Chapter 7} Shows some open issues and proposes future work
+  on those issues
+
+\item {\bf Chapter 8} Presents some concluding remarks
+
+\end{itemize}

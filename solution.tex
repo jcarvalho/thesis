@@ -331,7 +331,7 @@ thread, and if one is present, the following happens:
   to access the context and previous versions of VBoxes (for when a
   read is request and the context does not provide a value).
 
-\item A nested LongLivedTransaction is started. This will be the
+\item A nested \texttt{LLTStepTransaction} is started. This will be the
   active transaction, and route reads and writes.
 
 \item The version of the context is set as the ``current'' version if
@@ -350,8 +350,8 @@ if (LongTransactionSupport.isInsideContext()) {
   JvstmInFenixTransaction underlying =
       Transaction.begin(false);
 
-  LongLivedTransaction longTx = 
-      new LongLivedTransaction(context, underlying);
+  LLTStepTransaction longTx = 
+      new LLTStepTransaction (context, underlying);
 
   longTx.start();
 
@@ -368,9 +368,9 @@ if (context.getVersion() == null) {
 
 The main reason to use a Nested transaction is to allow portability
 across concrete persistence implementations, as the
-LongLivedTransaction will be agnostic to the specific underlying
-transaction (provided it fulfils the required API). A
-LongLivedTransaction holds a reference to the {\bf
+\texttt{LLTStepTransaction} will be agnostic to the specific
+underlying transaction (provided it fulfils the required API). A
+\texttt{LLTStepTransaction} holds a reference to the {\bf
   TransactionalContext} backing it, so it can be used to aid in
 reading and writing.
 
@@ -419,7 +419,7 @@ private <T> T lookupBoxValueInContext(VBox<T> vbox) {
 
 \end{lstlisting}
 
-When reading a VBox within a LongLivedTransaction, the following
+When reading a VBox within a \texttt{LLTStepTransaction}, the following
 steps are executed:
 
 \begin{enumerate}
@@ -452,12 +452,13 @@ be asked to convert the value of a given slot to/from JSON, making it
 possible for Long Lived Transactions to get a JSON value from any
 VBox.
 
-When the transaction finishes, the LongLivedTransaction has in its
-Read and Write Sets the actual VBoxes that were read/written during
-the transaction. Recall that in each step the Read Set and Write Set
-of the step must contain only the changes to the context that reflect
-what has been read and written. As such, when committing the step, the
-Read Set and Write Set are processed in the following manner:
+When the transaction finishes, the \texttt{LLTStepTransaction} has in
+its Read and Write Sets the actual VBoxes that were read/written
+during the transaction. Recall that in each step the Read Set and
+Write Set of the step must contain only the changes to the context
+that reflect what has been read and written. As such, when committing
+the step, the Read Set and Write Set are processed in the following
+manner:
 
 \begin{lstlisting}[caption={Algorithm for committing a Long Lived
     Transaction's step}]
