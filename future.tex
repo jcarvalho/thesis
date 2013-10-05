@@ -77,27 +77,27 @@ conflicts are handled.
 \subsection{Reducing Conflicts}
 
 Consider the Course creation scenario presented in previous
-chapters. Now consider that the application used to create such
-Courses uses domain objects to represent the structure of the
-application's menu. With the current implementation of Long Lived
-Transactions, any change to one of the menu items would cause the
-Course creation to be rolled back.
+chapters. Now consider that the application shows a dashboard
+containing relevant information to the user. With the current
+implementation of Long Lived Transactions, any change to information
+shown in the dashboard would cause the Course creation to be rolled
+back, even if such information had nothing to do with the creation of
+the Course.
 
 This is because rendering the Course creation page would read the
-domain objects used to represent the items in the menu (so it could be
-rendered), putting them in the read set, despite the fact that they
-are not directly related to the operation the user is performing.
+domain objects used to render the dashboard, putting them in the read
+set, despite the fact that they are not directly related to the
+operation the user is performing.
 
 A possible approach would be to extend the DML to allow the programmer
 to specify specific classes or slots to have their transactional
-properties relaxed in Long Lived Transactions.
-
-Those classes would still be added to the read set of the Long Lived
-Transaction, but, the transaction would not conflict even if the
-version read is previous than the current version, unless the box has
-been written by the transaction (to avoid dirty writes). This would
-require special care from the programmer, as it makes it possible to
-perform operations based on an old version of a part of the data.
+properties relaxed in Long Lived Transactions.  Slot reads for those
+classes would still be registered in the TransactionalContext,
+however, having slots of such classes on the Read Set would not
+forcibly cause the Long Lived Transaction to abort.  Using this
+feature would require special care and consideration from the
+programmer, as it makes it possible to perform operations based on an
+old version of a part of the data.
 
 Another possibility is to take advantage of restartable
 transactions. Restartable transactions were first introduced in the

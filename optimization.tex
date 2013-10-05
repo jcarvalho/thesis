@@ -111,6 +111,11 @@ transaction), and the total balance is calculated. This means that in
 each step: (1) Every object in the system is read, (2) Many objects
 are written and (3) Many new objects are created.
 
+Listing~\ref{list:bank-code} shows the implementation of the described
+Business Operation. Note the @Atomic annotation in the
+\texttt{doOperation} method. This ensures that each operation runs in
+its own transaction.
+
 \begin{lstlisting}[caption={Code for the Business Operation},
 float]
 // Bank class
@@ -152,7 +157,6 @@ public void doOperation() {
   logger.info("Bank has {} money.", bank.getTotalMoney());
   shuffleMoney();
   shuffleMoney();
-  logger.info("Bank has {} money.", bank.getTotalMoney());
   createCustomers();
   shuffleMoney();
   logger.info("Bank has {} money.", bank.getTotalMoney());
