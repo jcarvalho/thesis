@@ -1,5 +1,10 @@
 \chapter{Long-Lived Transactions}
 
+In this Chapter I will describe what Long-Lived Transactions are and
+why they are difficult to implement using the currently available
+tools. I will also describe the objectives of this work, and lay down
+the requirements that must be fulfilled by the implementation.
+
 \section{What are Long-Lived Transactions?}
 \label{sec:what}
 
@@ -44,8 +49,9 @@ to see a course in an inconsistent state (either not connected to any
 departement and/or without all attributes properly defined).
 
 The pseudo-code in Listing~\ref{fig:courseCreation} implements the
-business operation of creating a new course. Assume that {\bf
-  department} is inferred from the user performing the operation.
+business operation of creating a new course. Assume that
+\texttt{department} is inferred from the user performing the
+operation.
 
 \begin{lstlisting}[float, caption={Pseudo-Code for the creation of a
     new course. A new Course is created, associated with its
@@ -67,10 +73,10 @@ describe two common scenarios for said implementation.
 A possible implementation (most likely, the simplest) of the course
 creation operation in a web application is to have a single page in
 which the user provides all the required information. Once the
-information is submitted, a new Course is created, associated with the
-department of the person performing the operation, and all its
-attributes are filled according to the information submitted by the
-user. The new object is then stored in the database, making it
+information is submitted, a new \texttt{Course} is created, associated
+with the department of the person performing the operation, and all
+its attributes are filled according to the information submitted by
+the user. The new object is then stored in the database, making it
 persistent and available for other users to view.
 
 In this scenario, in which all the information can be provided in a
@@ -96,10 +102,10 @@ the operation is committed.
 
 The model described in the previous scenario, whereas simple and easy
 to implement, may not be suited for every situation. Imagine that
-instead of four attributes, Course had 50 attributes. It would then be
-unfeasible to ask the user to fill everything out in a single web
-page. So, one possible solution would be to split the various
-attributes in multiple pages, accounting for multiple user
+instead of four attributes, \texttt{Course} had 50 attributes. It
+would then be unfeasible to ask the user to fill everything out in a
+single web page. So, one possible solution would be to split the
+various attributes in multiple pages, accounting for multiple user
 interactions.
 
 Let us now assume that the creation of a course is made throughout
@@ -206,15 +212,15 @@ issue.
 
 A possible solution for this requirement is to change our domain
 model, by adding a new attribute to the objects being modified (in
-this case, Course, as shown in
-Figure~\ref{fig:courseDomainState}). The {\bf status} attribute
-indicates whether the course is in a consistent state (Published) or
-not (Draft). Adding this attribute has a cost: Not only the domain
-becomes polluted with information that is not relevant to the object
-being modeled, but this solution affects other functional code across
-the application (e.g., course listings must filter out courses that
-are still in the Draft status), scattering the filtering code
-throughout the application.
+this case, \texttt{Course}, as shown in
+Figure~\ref{fig:courseDomainState}). The \texttt{status} attribute
+indicates whether the course is in a consistent state
+(\texttt{Published}) or not (\texttt{Draft}). Adding this attribute
+has a cost: Not only the domain becomes polluted with information that
+is not relevant to the object being modeled, but this solution affects
+other functional code across the application (e.g., course listings
+must filter out courses that are still in the \texttt{Draft} status),
+scattering the filtering code throughout the application.
 
 \begin{figure}
   \centering
@@ -243,47 +249,40 @@ throughout the application.
 There are other approaches to Long-Lived Transactions, such as using
 the Database. There are some DBMSs that announce support for
 Long-Lived Transactions, such as Oracle's Workspace Manager. However,
-such support is not standardized, their API's are proprietary,
+such support is not standardised, their API's are proprietary,
 rendering Web frameworks unusable in those cases (they generally only
 support the SQL standard), forcing the application to be written
 against the proprietary API, making it very hard to change and
 maintain. All these factors contribute to make this approach
 inadmissible for most cases.
 
-\section{Applications of LLTs}
-
-Even though the example I just presented was targeted at a system with
-a rich domain model, there are several other applications of
-Long-Lived Transactions.
-
-\subsection{Database Management Systems}
-
-The example provided above is targeted at applications with a rich
-domain model, but there are many applications built directly on top of
-DBMSs. Those applications typically have requirements similar to those
-with a rich domain model, however, they must rely directly on the DBMS
-for transactional support.
-
-\subsection{Workflow Systems}
-
-Workflow Management Systems are another area in which Long-Lived
-Transactions are interesting. Workflow processes represent business
-transactions, consisting in a flow of steps or tasks, each of them
-possibly performed by different people.
-
-It is thus vital for Workflow Systems to embrace Long-Lived
-Transactions as a core concept, and many approaches have been
-developed in this area.
-
-Consider the Course Creation example. Assume that each step of the
-operation is executed by a different person. A Workflow Management
-System could be used to implement that operation.
-
 \section{Objectives}
 
-All this effort makes Long-Lived Transactions a concept that is very
-hard to implement, promotes bad software engineering practices
-(replication, code scattering, etc), and is difficult to reason
-about. My thesis is that the support for Long-Lived Transactions
-should be transparent, and at an infrastructural level, relieving the
-programmer from this burden.
+This Chapter shows that implementing Long Lived Transactions using
+current transaction support systems is a rather difficult task which
+promotes poor software engineering practices. As
+such, this the work presented in this thesis aims at providing a
+solution that:
+
+\begin{itemize}
+
+\item Provides infrastructural-level support for Long Lived
+  Transactions
+
+\item Allows existing code to benefit from Long Lived Transactions
+  without any modifications
+
+\item Gives programmers a simple API to manage the life-cycle of Long
+  Lived Transactions
+
+\item Allows multiple concurrent users running separate steps of the
+  Long Lived Transaction
+
+\item Does not impose an overhead on the execution of regular
+  transactions
+
+\item Shows performance results comparable to those of regular
+  transactions
+
+\end{itemize}
+

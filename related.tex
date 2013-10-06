@@ -11,6 +11,36 @@ Also, due to its relevance regarding the solution described in section
 Transactions, Persistent STMs, and how they cope with short lived
 transactions.
 
+\section{Long-Lived Transactions in other domains}
+
+Long Lived Transactions are not a new research topic, and they have
+been studied and applied in areas other than Software Transactional
+Memories.
+
+\subsection{Database Management Systems}
+
+The example provided above is targeted at applications with a rich
+domain model, but there are many applications built directly on top of
+DBMSs. Those applications typically have requirements similar to those
+with a rich domain model, however, they must rely directly on the DBMS
+for transactional support.
+
+\subsection{Workflow Systems}
+
+Workflow Management Systems are another area in which Long-Lived
+Transactions are useful. Workflow processes represent business
+transactions, consisting in a flow of steps or tasks, each of them
+possibly performed by different people.
+
+It is thus vital for Workflow Systems to embrace Long-Lived
+Transactions as a core concept, and many approaches have been
+developed in this area.
+
+Consider the Course Creation example. Assume that each step of the
+operation is executed by a different person. A Workflow Management
+System could be used to implement that operation.
+
+
 \section{Transactions in Database Management Systems}
 \label{sec:rdbms}
 
@@ -63,10 +93,11 @@ In the ANSI/ISO SQL standard\cite{melton1992ansi}, four isolation
 levels have been defined (from most to least relaxed):
 
 \begin{itemize}
-\item {\bf Read Uncommitted} In this isolation level, read operations
-  are performed in a non-locking fashion, thus, {\it Dirty reads} may
-  occur. A {\it Dirty read} is defined as a read operation that reads
-  data updated by a live (not yet committed) transaction.
+\item {\bf Read Uncommitted} This is the lowest isolation level
+  provided by any transaction support system. At this level {\it Dirty
+    reads} may occur. A {\it Dirty read} is defined as a read
+  operation that reads data updated by a live (not yet committed)
+  transaction.
 \item {\bf Read Committed} In this level, {\it Dirty reads} cannot
   happen (meaning they only read data written by already committed
   transactions). However, multiple reads to the same data location may
@@ -100,7 +131,8 @@ database, and the transaction itself will only commit if no updates it
 has made conflict with any concurrent updates since the
 snapshot. Snapshot isolation arose from work on Multiversion
 Concurrency Control, and thus did not make it into the lock-centered
-mindset of the SQL-92 standard.
+mindset of the SQL-92 standard. This gap was heavily criticised in
+\cite{berenson1995critique}.
 
 \subsection{Concurrency Control}
 
@@ -109,10 +141,10 @@ execution should not cause application programs to malfunction''
 \cite{reuter1993transaction}. This property was coined in 1993 as the
 first law of Concurrency Control, by Jim Gray. In fact, concurrency
 control mechanisms are what ensure that the ACID properties of
-transactions are kept under an environment with concurrent access to
-shared mutable data. Research on the topic dates back to the
-1970s \cite{rosenkrantz1978system} and 1980s \cite{gray1981transaction},
-and is still a hot topic nowadays.
+transactions are kept, in an environment with concurrent access to
+shared mutable data. Research on the topic dates back to the 1970s
+\cite{rosenkrantz1978system} and 1980s \cite{gray1981transaction}, and
+is still a hot topic nowadays.
 
 There are two main categories of Concurrency Control:
 
@@ -241,7 +273,7 @@ properties are broken when using several system transactions.
 \item {\bf Optimistic Offline Lock} This pattern solves the problem by
   validating that the changes about to be committed by one session (or
   business transaction) do not conflict with the changes of another
-  session. This is achieved by, in each system transaction commit,
+  session. This is achieved by, once the session is being committed,
   validating that the changes about to be committed are consistent,
   making sure that the value previously read by the current session
   was not changed by another session (i.e. obtaining an Optimistic
@@ -327,7 +359,7 @@ such languages are YAWL \cite{van2005yawl}, AWGL
 many others.
 
 In \cite{sheth1993transactional}, the term {\it Transactional
-  Workflow} was introduced, recognizing the relevance of transactions
+  Workflow} was introduced, recognising the relevance of transactions
 to workflows. Transactional Workflows provide functionality required
 by each workflow process (such as task collaboration), which is
 usually not available in typical DBMSs. This, however, does not imply
@@ -403,31 +435,35 @@ Several other methods have been proposed in the literature (e.g.,
 not suitable for the requirements defined in Section~\ref{sec:what},
 due to the fact that most WFMSs do not provide full ACID properties.
 
-\section{Object/Relational Mapping}
+\section{Object-Relational Mapping}
 \label{sec:orm}
 
 Due to the increase in popularity of object-oriented programming, a
-large number of Object/Relational Mapping (ORM) tools have arisen over
+large number of Object-Relational Mapping (ORM) tools have arisen over
 the past few years \cite{orm}. These tools range from simple data
 access layer abstractions (which simply abstract the necessary
 instructions to perform the desired operation), to fully fledged
-tools that handle every aspect of the Object/Relational Mapping,
+tools that handle every aspect of the Object-Relational Mapping,
 making the underlying database completely transparent to the
 programmer.
 
-Object/Relational Mapping tools are available for a great number of
-languages. For Java, there are two competing persistence standards:
-Java Persistence API (JPA) and Java Data Objects (JDO). Both
-specifications allow a programmer to create domain entities by
-decorating Plain Old Java Objects (POJOs) with annotations, making the
-persistence layer transparent to the programmer. Whereas JDO provides
-a larger number of features than JPA, the latter has seen greater
-adoption by the community, both in terms of usage and support.
-
-The most well-known implementations of the JPA are Hibernate,
-DataNucleus, OpenJPA and EclipseLink. Other ORM tools include
-DatabaseObjects (.NET), NHibernate (Hibernate for .NET), CoreData
-(Objective-C), CodeIgniter (PHP) and Django (Python).
+Object-Relational Mapping tools are available for a great number of
+languages. For Java, there are many competing persistence standards,
+including: Java Persistence
+API\footnote{\texttt{http://jcp.org/en/jsr/detail?id=317}} (JPA), Java
+Data
+Objects\footnote{\texttt{http://www.jcp.org/en/jsr/detail?id=243}}
+(JDO), Spring
+Data\footnote{\texttt{http://projects.spring.io/spring-data/}}, among
+others. Both specifications allow a programmer to create domain
+entities by decorating Plain Old Java Objects (POJOs) with
+annotations, making the persistence layer transparent to the
+programmer. Whereas JDO provides a larger number of features than JPA,
+the latter has seen greater adoption by the community, both in terms
+of usage and support. The most well-known implementations of the JPA
+are Hibernate (\texttt{http://www.hibernate.org}), OpenJPA
+(\texttt{http://openjpa.apache.org}) and EclipseLink
+(\texttt{http://www.eclipse.org/eclipselink/}).
 
 To provide transactional support for domain objects, ORMs typically
 delegate transaction management to the underlying Database (which is
@@ -487,12 +523,14 @@ This support is not good enough for several reasons:
 \item The session is not kept persistent. If the application server
   restarts in the middle of the transaction, all data related to the
   ongoing Long Conversation is lost.
-\item Despite the versioning support, this system only supports the
-  ``Repeatable Read'' isolation level (see Section
-  \ref{sec:isolation}). Suppose that a database transaction other than
-  the first (T2) reads an object that was changed concurrently (by T3)
-  between the first transaction and T2. T2 will read the value written
-  by T3, and the Long Transaction is not serializable.
+\item Despite the versioning support, the business transaction may
+  still suffer from inconsistent reads, as it spans multiple isolated
+  database transactions. Suppose that in a database transaction (T2)
+  other than the first one (T1), the application reads an object for
+  the first time. If the object was concurrently modified by yet
+  another transaction (T3) that occurred between T1 and T2, T2 would
+  see the value written by T3, which would not be consistent. As such,
+  these transactions are not {\it Serializable} (See Section \ref{sec:isolation}).
 \end{itemize}
 
 All of these reasons violate the desired properties described in
@@ -513,7 +551,7 @@ concurrent accesses to shared data. Managing lock granularity and
 composability is a cumbersome and error-prone task, and may lead to
 unwanted situations such as deadlocks. Over the years, the original
 concept of Hardware Transactional Memories has evolved, giving birth
-to Software Transactional Memories.
+to Software Transactional Memories \cite{shavit1997software}.
 
 Software Transactional Memories bring into the realm of programming
 languages, the age-old notion of transactions, well-known in the area
@@ -574,7 +612,7 @@ transaction structure, supporting multiple levels of transactions:
 Transactions that may contain other sub-transactions, forming a
 transaction tree. Nested Transactions have long been used in the
 database world, and many of its concepts have been adapted to
-transactional memories \cite{worah1997transactions}.
+transactional memories.
 
 Consider the kind of monolithic transactions commonly found in
 enterprise applications. In such transactions, the volume of work that
