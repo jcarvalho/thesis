@@ -11,36 +11,6 @@ Also, due to its relevance regarding the solution described in section
 Transactions, Persistent STMs, and how they cope with short lived
 transactions.
 
-\section{Long-Lived Transactions in other domains}
-
-Long Lived Transactions are not a new research topic, and they have
-been studied and applied in areas other than Software Transactional
-Memories.
-
-\subsection{Database Management Systems}
-
-The example provided above is targeted at applications with a rich
-domain model, but there are many applications built directly on top of
-DBMSs. Those applications typically have requirements similar to those
-with a rich domain model, however, they must rely directly on the DBMS
-for transactional support.
-
-\subsection{Workflow Systems}
-
-Workflow Management Systems are another area in which Long-Lived
-Transactions are useful. Workflow processes represent business
-transactions, consisting in a flow of steps or tasks, each of them
-possibly performed by different people.
-
-It is thus vital for Workflow Systems to embrace Long-Lived
-Transactions as a core concept, and many approaches have been
-developed in this area.
-
-Consider the Course Creation example. Assume that each step of the
-operation is executed by a different person. A Workflow Management
-System could be used to implement that operation.
-
-
 \section{Transactions in Database Management Systems}
 \label{sec:rdbms}
 
