@@ -41,7 +41,7 @@ publications. Value Types are described in more detail below.
 
 \begin{lstlisting}[caption={DML for the {\it Course} and {\it
       Department} classes},
-  label={list:class-example}]
+  label={list:class-example}, float]
 class Course {
   String name;
   String objectives;
@@ -102,10 +102,27 @@ domain class extends) containing
 
 Consider the DML on
 Listing~\ref{list:class-example}. Listing~\ref{list:courseCode} shows
-the Code generated for the Course class and 
+the Code generated for the \texttt{Course} class and its corresponding
+base class, as well as the \texttt{Department} base class, containing
+the API generated from the domain definition. For each slot declared
+in the DML a pair of Getter and Setter is generated, providing access
+to the persistent field. For relations there are two types of
+generated methods, depending on the multiplicity of the relation in
+the class. For instance, as one \texttt{Course} has one
+\texttt{Department}, the generated methods are simple getters/setters
+for the \texttt{Department}, as if it were a simple slot. On the other
+side of the relation, as a \texttt{Department} has multiple
+\texttt{Course} objects, the generated methods return a Set containing
+all the elements in the relation. The Framework also generates two
+methods to add and remove an element from the Set.
+
+Whereas in the code shown in this document the body of such methods is
+\texttt{/* Generated */}, the actual code will depend on the backend
+used in runtime. More details about the Code Generation process in
+Section~\ref{sec:codeGen}.
 
 \begin{lstlisting}[caption={Generated Course class},
-label={list:courseCode}]
+label={list:courseCode}, float]
 public class Course extends Course_Base {
   public Course() {
     super();
@@ -124,13 +141,21 @@ public abstract class Course_Base extends
   (...)
 
   public Department getDepartment() { /* Generated */ }
-  public void setDepartment(Department value) { /* Generated */ }
+  public void setDepartment(Department value) {/* Generated */}
+
+}
+
+public abstract class Department_Base extends
+                                      AbstractDomainObject {
+
+  public Set<Course> getCourseSet() { /* Generated */ }
+
+  public void addCourse(Course couse) { /* Generated */ }
+
+  public void removeCourse(Course course) { /* Generated */ }
 
 }
 \end{lstlisting}
-
-Generation of base classes is described in more detail in
-Section~\ref{sec:codeGen}.
 
 \subsection{Value Types}
 
@@ -194,7 +219,7 @@ everywhere'' paradigm. The programmer simply writes his application
 against a public API and is able to run it on multiple backends.
 
 This way, not only are applications portable across several
-technologies (MySQL, Neo4j, MongoDB, etc), but also testing support is
+technologies (MySQL, Neo4j, Hibernate, etc), but also testing support is
 greatly enhanced, as there is no need to mock the persistence API, as
 tests can be run using an in-memory backend.
 
@@ -262,25 +287,30 @@ development and test cycle.
 
 \subsection{Backends}
 
-Backends provide concrete implementations of the transactional and
-persistence support. Application modules should not depend directly on
-the backends, as their API is private and as such subject to change
-even among minor versions, and having a dependency on a specific
-backend means that portability must be sacrificed.
+Backends are a crucial part of the Fenix Framework. They provide
+concrete implementations of the transactional and persistence
+support. Application modules should not depend directly on the
+backends, as their API is private and as such subject to change even
+among minor versions, and having a dependency on a specific backend
+means that portability must be sacrificed.
 
 The fact that backends have a clear separation from the Public API
 allows for a much faster evolution of the backend's
 implementation. Major internal changes can be done without affecting
 the end-users directly, even in a revision release, whereas changes to
-the public API require either a major or minor release. 
-
-COMPLETE
+the public API require either a major or minor release.
 
 \section{Code Generation}
 \label{sec:codeGen}
 
-In the Fenix Framework, access to persistent fields is done through
-generated methods in Base classes. 
+As previously described, access to persistent fields of domain objects
+is done using generated methods in Base classes.
+
+Code generation is closely tied to the specific backends, as it is
+typically used to support the process of persisting an object to a
+database. An example of an operation performed in generated code is
+binding a \texttt{PreparedStatement} with the values of the object's
+slots, or externalizing the object to JSON.
 
 There are two major components in code generation:
 
@@ -300,9 +330,23 @@ There are two major components in code generation:
   values that otherwise would have to be computed in runtime.
 \end{itemize}
 
-Code generation is a critical part of the Fenix Framework, and it
-presents a tradeoff between code readability (as domain classes will
-extend Base classes, not the domain  
+Whereas this Code Generation architecture allows for great
+optimizations (it allows backends to perform complex operations
+without resorting to reflection), it comes with a tradeoff: Forcing
+the domain classes to inherit from Base classes hinders the
+readability of the code (as the user is required to either check the
+DML or the base class to find out the super class), makes it
+impossible to invoke constructors of the super class (as the Base
+class only generates the no-arg constructor), does not allow the
+programmer to choose the visibility of the generated methods (as they
+are always generated public) among other issues.
+
+The Code Generation step also provides a mechanism to transfer
+compile-time information to the runtime. Information such as the App
+Name (which is used in runtime to generate the graph of DML
+dependencies), the name of the Backend used to compile the final
+application (to allow for automatic initialization), as well as pass
+user-defined parameters to runtime.
 
 \section{JVSTM}
 \label{sec:jvstm}
