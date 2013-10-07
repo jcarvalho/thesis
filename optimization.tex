@@ -24,13 +24,13 @@ class Bank;
 class Customer;
 
 class Account {
-  Double balance;
+  Money balance;
   DateTime opened;
 }
 
 class TransactionRecord {
   DateTime when;
-  Double amount;
+  Money amount;
 }
 
 relation BankHasCustomers {
@@ -119,18 +119,18 @@ its own transaction.
 \begin{lstlisting}[caption={Code for the Business Operation},
 label={list:bank-code},float]
 // Bank class
-public double getTotalMoney() {
-  double money = 0;
+public Money getTotalMoney() {
+  Money money = Money.zero();
   for (Customer customer : getCustomerSet())
-    money += customer.getTotalMoney();
+    money = money.add(customer.getTotalMoney());
   return money;
 }
 
 // Customer class
-public double getTotalMoney() {
-  double money = 0;
+public Money getTotalMoney() {
+  Money money = Money.zero();
   for (Account account : getAccountSet())
-    money += account.getBalance();
+    money = money.add(account.getBalance());
   return money;
 }
 
@@ -144,7 +144,7 @@ public void shuffle() {
 }
 
 // Account class
-public void transfer(Double amount, Account to) {
+public void transfer(Money amount, Account to) {
   this.withdraw(amount);
   to.deposit(amount);
   addOutgoingTransaction(new TransactionRecord(to, amount));
