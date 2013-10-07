@@ -24,19 +24,8 @@ transactions with lifetimes of a few days or
 weeks''\cite{gray1981transaction}, and can be found in many enterprise
 applications. Due to their duration, Long-Lived Transactions pose some
 challenges not encountered in short transactions, and thus, many
-attempts have been made to support them.
-
-\section{Thesis Statement}
-
-My thesis statement is that it is possible to relieve programmers of
-the effort of developing Long Lived Transactions on top of a
-Persistent STM, by providing infrastructural-level support. Such
-support is either non existing or lackluster in current transaction
-support systems.
-
-I believe that it is possible to provide a way for programmers to
-transparently support Long Lived Transactions without the need for
-modifications to existing code.
+attempts have been made to support them. Despite such attempts,
+support is either non existing or lackluster.
 
 In this thesis, I aim at adding support for Long-Lived Transactions in
 applications with Rich Domain Models.  A Rich Domain Model is ``An
@@ -55,8 +44,20 @@ which the domain objects are persistent, transactionally updated, and
 handled transparently at an infrastructural level (meaning that the
 programmer should be mostly unaware of the persistence/data tier).
 
+\section{Thesis Statement}
+
+My thesis statement is that it is possible to relieve programmers of
+the effort of developing Long Lived Transactions on top of a
+Persistent STM, by providing infrastructural-level support.
+
+I believe that it is possible to provide a way for programmers to
+transparently support Long Lived Transactions without the need for
+modifications to existing code, and with performance results
+comparable to those of regular transactions.
+
 \section{Contributions}
 
+The main contributions of this document are the 
 
 \section{Document Structure}
 
