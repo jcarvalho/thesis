@@ -49,7 +49,10 @@ presented above, including some of the limitations:
 
 \end{itemize}
 
-These limitations make this approach not suitable, <- Acabar!
+Despite this limitation, this approach is a step in the right
+direction. With a few modifications, it is possible to overcome the
+limitations and obtain a fully functional solution. To do so, there
+are some challenges that need to be overcome:
 
 \begin{itemize}
 
@@ -63,6 +66,9 @@ These limitations make this approach not suitable, <- Acabar!
   Lived Transaction?
 
 \end{itemize}
+
+Throughout the rest of this chapter I will present solutions for these
+challenges and create a solution that fulfils all the requirements.
 
 \section{Architecture}
 \label{sec:arch}
@@ -157,9 +163,10 @@ version when the first step of the transaction executed).
 
 A context has two associated sets of \texttt{LogEntries}, one for the
 Read Set and one for the Write Set. A \texttt{LogEntry} represents one
-read or written object throughout the transaction, by keeping a
-reference to the object, as well as the value that was written (note
-that the value is only kept if the LogEntry belongs to the Write Set).
+read or written slot throughout the transaction, by keeping a
+reference to the object, slot name, as well as the value that was
+written (note that the value is only kept if the LogEntry belongs to
+the Write Set).
 
 Once again recall the Course creation example, in which a Long Lived
 Transaction is used to perform a multi-step creation of a new Course
@@ -190,13 +197,15 @@ Note that as this step was the first, the version of the
 version. Figure~\ref{fig:course-logEntries}b shows the contents of the
 context after the execution of the first step.
 
-\subsection{Behaviour}
+\subsection{Transaction Isolation}
 
 Having the necessary data structures laid out is crucial for a proper
 implementation of Long Lived Transactions, but it is just the
 beginning. Whereas these structures are agnostic to the specific
 backend, the backend must be able to recognise when a transaction is
-executing within the context of a Long Lived Transaction.
+executing within the context of a Long Lived Transaction, so that
+reads and writes are isolated from the global context (otherwise the
+whole world could see the intermediate values).
 
 In the Fenix Framework, transactions are bound to a specific thread,
 allowing for multi-threaded applications to execute multiple
@@ -214,7 +223,7 @@ transactional context as a step of a Long Lived Transaction.
   label={list:longTxBind},float]
 public void runStep(TransactionalContext context) {
   try {
-    // IllegalStateException is already within a context
+    // IllegalStateException if already within a context
     LongTransaction.setContextForThread(context);
     transactionalOperation();
   } finally {
@@ -234,7 +243,7 @@ getters and setters is changed.
 
 When reading the value of a slot within a
 \texttt{TransactionalContext}, it is the responsibility of the backend
-to check whether the slot is in the write-set of transaction (so that
+to check whether the slot is in the Write Set of transaction (so that
 written values can be later read) and if it is not, read the value of
 the slot in the correct version (the version recorded in the
 context). Slot reads are recorded as a \texttt{LogEntry} in the Read
@@ -251,7 +260,7 @@ context. As such, in the end of a step, only slots belonging to the
 \texttt{TransactionalContext} and its \texttt{LogEntries} are written
 to persistent support.
 
-\subsection{Committing}
+\subsection{Committing the Long Lived Transaction}
 
 So far we have seen what data is stored in a
 \texttt{TransactionalContext} and how it is populated. Now we shall
@@ -263,10 +272,11 @@ atomic and consistent, meaning that its effects must appear to have
 occurred at a single well-defined point in time. To accomplish this,
 all elements of the Read Set must be validated to be in the same
 version, thus ensuring that all writes were performed based on fresh
-data (more details on how this is accomplished are given below). If
-the validation step is successful, all the written data must be merged
-into the global context, by iterating over all \texttt{LogEntries} in
-the Write Set, and writing the recorded value to the correct slot.
+data (more details on how this is accomplished in
+Section~\ref{sec:jvstm-commit}). If the validation step is successful,
+all the written data must be merged into the global context, by
+iterating over all \texttt{LogEntries} in the Write Set, and writing
+the recorded value to the correct slot.
 
 To ensure the correctness of the commit operation, both validation and
 merge are performed within a regular transaction, in a
@@ -304,8 +314,8 @@ The implementation is divided in two parts:
 
 The goal of this division is twofold: to allow alternative
 implementations on top of non-JVSTM backends, and to hide internal
-implementation from the programmer (who should not depend on backend
-code).
+implementation details from the programmer (who should not depend on
+backend code).
 
 \subsection{API}
 
@@ -575,6 +585,7 @@ that the only objects written will be the ones representing the
 context and its \texttt{LogEntries}.
 
 \subsubsection{Finishing the Long Lived Transaction}
+\label{sec:jvstm-commit}
 
 Once all steps of the Long Lived Transaction are finished, the
 transaction must be committed, ensuring that the changes performed in
@@ -602,7 +613,7 @@ process. Modifications to the VBox's underlying data structures are
 performed only at commit time, inside a commit lock. As the
 verification process is not run within the commit lock, it is possible
 for another transaction to concurrently update a VBox after the
-validation. To prevent incorrect behaviour is quite simple: Just read
+validation. Preventing incorrect behaviour is quite simple: Just read
 the box. By doing this, the box will be validated when the transaction
 commits, ensuring that the verification was correct (i.e. the version
 read during the verification is still valid).
