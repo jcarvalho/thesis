@@ -693,40 +693,42 @@ void mergeContext(TransactionalContext context) {
 \section{Validation}
 \label{sec:validation}
 
-INTRO HERE
+This chapter proposed a solution that allows programmers to take
+advantage of Long Lived Transactions with little effort and no code
+modifications. I shall now validate the proposed solution, both in
+terms of correctness and ease of use.
 
 \subsection{Correctness}
 
-Perhaps the greatest challenge on implementing Long Lived Transactions
-vs regular transactions is ensuring that the same correctness
-guarantees are provided. This section demonstrates that the presented
-solution gives the same transactional guarantees as a regular transaction.
+One of the greatest challenges when implementing Long Lived Transactions
+is ensuring that the solution provides the same correctness guarantees
+as regular transactions. I will now demonstrate that the proposed
+solution provides the same correctness guarantees as regular transactions.
 
-The JVSTM provides all three ACI (Atomicity, Consistency and
-Isolation) properties, whereas the Fenix Framework aids in providing
-the Durability property (which actually depends on the concrete
-backend used). The JVSTM also guarantees an Opacity level of
-isolation (refer to Section~\ref{sec:opacity}).
+Transactions in the JVSTM are ACI compliant (they provide Atomicity,
+Consistency and Isolation), with an Opacity isolation level (refer to
+Section~\ref{sec:opacity}). When integrated with the Fenix Framework,
+transactions may also provide the Durability property, depending on
+whether the concrete backend supports persistence.
 
-The solution presented in this chapter extends all the ACID properties
-to Long Lived Transactions, and in 
-
-
+The proposed solution also provides all the ACID properties for Long
+Lived Transactions, as well as an Opacity isolation level.
 
 \begin{itemize}
 
 \item {\bf Atomicity} is provided as all the writes performed during
-  the transaction are only written to the global context when the
-  transaction is committed, which is made using a ...
-
-\item {\bf Isolation} is provided as all the data is kept in an
-  isolated context.
+  the LLT are only written to the global context when the it commits,
+  which is performed by a regular transaction.
 
 \item {\bf Consistency} is provided in the same way as a regular
   transaction, by ensuring that every read is still valid at commit
   time.
 
-\item {\bf Durability} 
+\item {\bf Isolation} is provided as no data is ever written to the
+  global context until the LLT is finished, and data reads are isolated.
+
+\item {\bf Durability} is provided if the underlying backend supports
+  data persistence.
 
 \end{itemize}
 
@@ -734,12 +736,25 @@ Throughout the execution of the Long Lived Transaction, written data
 is collected and stored inside the \texttt{TransactionalContext}. Once
 the transaction is finished, written data is {\bf atomically} written
 to the global context, using a regular transaction which simply reads
-data from one domain object (the context) to another (the actual
-objects written during the transaction).
+data from one domain object (the context) to be written in another
+(the actual objects written during the transaction).
 
-Long Lived Transactions are {\bf consistent} . Data validity is
-guaranteed as the commit algorithm performs a Read Set verification as
-if the whole transaction occurred in a single step.
+Long Lived Transactions are {\bf consistent}. Similarly to regular
+transactions, a LLT only commits if all the data read during the
+transaction is still valid at commit time. This is done by comparing
+the version of the LLT against the version of every box in the Read
+Set, just like a regular transaction would do.
+
+{\bf Isolation} is perhaps the hardest property to demonstrate. When
+performing a read operation within a Long Lived Transaction, the
+system ensures that the returned value will be the one at the moment
+the first step of the LLT executed (i.e. the value consistent with the
+transaction's version), just like it happens with regular
+transactions.  As for writes, similarly to what happens with regular
+transactions, written values are kept in transaction-local storage
+(i.e. in \texttt{LogEntries}) and as such, can only be accessed by the
+transaction itself.
+
 
 {\bf Durability} is an ``optional'' property, as not all JVSTM-based
 backends provide persistent support. Those that do however, ensure
@@ -747,9 +762,19 @@ that the effects of Long Lived Transactions as durable, as it works as
 if writes occurred in a single regular transaction (which already
 provides the Durability property).
 
-{\bf Isolation} is perhaps the hardest property to demonstrate.
+I have shown that Long Lived Transactions provide the same correctness
+guarantees as regular transactions. There is, however, one key piece
+missing. Correctness is only guaranteed provided that all the
+information about reads and writes is collected throughout the
+transaction, and is available at commit time.
 
-
+Recall from the previous sections that in each step of the Long Lived
+Transaction, every read and write operation is intercepted, and for
+each operation a record is created. Such records are kept in
+\texttt{LogEntries}, which in turn are writting using regular
+transactions. As such, once the LLT is committing, it is able to read
+all the recorded data, and use it for all the necessary verifications
+and data updates.
 
 \subsection{Ease of Use}
 
@@ -770,12 +795,13 @@ added at an infrastructural level, by providing the user with a UI to
 manage his Operations (creating, committing, enabling, etc). Creating
 and committing the operation would imply simple domain object
 manipulation (in particular creating and committing a
-\texttt{TransactionalContext}.
+\texttt{TransactionalContext}).
 
 Making every action performed by the user as a step of the Long Lived
 Transaction would be a simple as keeping the context in session-local
-storage, and binding it before every transaction start. With this
-architecture, it is possible to make EVERY operation in the
-application part of a Long Lived Transaction, without the need to
-change existing code, or changing the methodology used to develop new
-functionalities. 
+storage, and binding it before every transaction start (using a Web
+Filter or similar). With this architecture, it is possible to make
+EVERY operation in the application part of a Long Lived Transaction,
+without the need to change existing code, or changing the methodology
+used to develop new functionalities.
+
