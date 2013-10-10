@@ -52,67 +52,65 @@ Because data persistency is a critical requirement in enterprise
 applications, STMs have been extended to collaborate with persistent
 storage systems, giving birth to the concept of {\it Persistent
   Software Transactional Memory} \cite{fernandes2011strict}. Thus,
-several enterprise applications, such as the FenixEDU web application,
-are now using PSTMs for transactional support.
+several enterprise applications, such as the FenixEdu\footnote{See
+  \texttt{http://www.fenixedu.org}} web application, are now using
+PSTMs for transactional support.
 
-Long-Lived Transactions were first described in 1981 as ``[..]
+Long-Lived Transactions (LLTs) were first described in 1981 as ``[..]
 transactions with lifetimes of a few days or
 weeks''\cite{gray1981transaction}, and can be found in many enterprise
 applications. Due to their duration, Long-Lived Transactions pose some
 challenges not encountered in short transactions, and thus, many
-attempts have been made to support them.
+attempts have been made to support them. Despite such attempts,
+support is either non existing or lackluster.
 
-My thesis consists on making Long-Lived Transactions easier to develop
-on top of a Persistent STM, by providing infrastructural-level
-support, relieving the programmer from all the effort that is required
-to implement them.
-
-In this project, I aim at adding support for Long-Lived Transactions
-in applications with Rich Domain Models.  A Rich Domain Model is ``An
+In this thesis, I aim at adding support for Long-Lived Transactions in
+applications with Rich Domain Models.  A Rich Domain Model is ``An
 object model of the domain that incorporates both behaviour and
 data.``, as described by \cite{fowler2003patterns}, meaning that
 domain objects hold both their data and the business logic that
-manipulates them, as opposed to Anemic Domain Model, in which the
+manipulates them, as opposed to an Anemic Domain Model, in which the
 domain objects simply contain data, and the business operations are
-handled by a separate Service layer. Also, in a Rich Domain Model,
+handled by a separate Service Layer. Also, in a Rich Domain Model,
 each domain object typically has an arbitrarily complex web of
 associations, multivalued attributes, inheritance, and is typically a
 part of some Object-Oriented design patterns.
 
-My main target throughout this project are enterprise applications in
-which the Domain Objects are persistent, transactionally updated, and
+The main target enterprise applications in
+which the domain objects are persistent, transactionally updated, and
 handled transparently at an infrastructural level (meaning that the
 programmer should be mostly unaware of the persistence/data tier).
 
-This document is organized as follows. In Section 2, I will present
-Long-Lived Transactions in more detail, as well as explaining why they
-are difficult to implement without infrastructural support. In Section
-3, I present existing work on Long-Lived Transaction implementation
-and support, as well as explain why they are not suited for our
-requirements. In Section 4, I present the architecture of my solution,
-and describe the Fenix Framework, which will be the base for this
-work. In Section 5, I explain how the implementation will be
-evaluated. 
+\subsection{Thesis Statement}
 
-Finally, in Section 6, I shall draw some conclusions.
+My thesis statement is that it is possible to relieve programmers of
+the effort of developing Long Lived Transactions on top of a
+Persistent STM, by providing infrastructural-level support.
+
+I believe that it is possible to provide a way for programmers to
+transparently support Long Lived Transactions without the need for
+modifications to existing code, and with performance results
+comparable to those of regular transactions.
+
+\subsection{Contributions}
+
+The main contributions of this document are the 
 
 \section{Long-Lived Transactions}
 
-In this section I provide a concrete example of a Long-Lived
-Transaction, with the goal of, not only explaining the concept, but
-also to show how such transactions can be found in many
-applications. I then show why it is difficult for a programmer to
-implement a Long-Lived Transaction, thereby motivating as to why a new
-approach is needed.
+In this Chapter I will describe what Long-Lived Transactions are and
+why they are difficult to implement using the currently available
+tools. I will also describe the objectives of this work, and lay down
+the requirements that must be fulfilled by the implementation.
 
 \subsection{What are Long-Lived Transactions?}
 \label{sec:what}
 
-As previously described, Long-Lived Transactions are transactions with
-a lifetime larger than a typical database transaction. To better
-understand this concept, consider the example shown in
-Figure~\ref{fig:courseDomain}, corresponding to a simplified fragment
-of the domain model for an application in the higher education domain.
+Long-Lived Transactions are transactions with a lifetime larger than a
+typical database transaction. To better understand this concept,
+consider the example shown in Figure~\ref{fig:courseDomain},
+corresponding to a simplified fragment of the domain model for an
+application in the higher education domain.
 
 \begin{figure}
   \centering
@@ -149,15 +147,14 @@ to see a course in an inconsistent state (either not connected to any
 departement and/or without all attributes properly defined).
 
 The pseudo-code in Listing~\ref{fig:courseCreation} implements the
-business operation of creating a new course. Assume that {\bf
-  department} is inferred from the user performing the operation.
+business operation of creating a new course. Assume that
+\texttt{department} is inferred from the user performing the
+operation.
 
-\lstset{language=Java, basicstyle=\ttfamily, stepnumber=2,
-  numbersep=9pt, tabsize=4, frame=single, caption={Pseudo-Code for the
-    creation of a new course. A new Course is created, associated with
-    its department, and its attributes are filled.},
-  label={fig:courseCreation}, captionpos=b}
-\begin{lstlisting}[float]
+\begin{lstlisting}[float, caption={Pseudo-Code for the creation of a
+    new course. A new Course is created, associated with its
+    department, and its attributes are filled.},
+  label={fig:courseCreation}]
 Course course = new Course();
 department.addCourse(course);
 course.setName(name);
@@ -174,10 +171,10 @@ describe two common scenarios for said implementation.
 A possible implementation (most likely, the simplest) of the course
 creation operation in a web application is to have a single page in
 which the user provides all the required information. Once the
-information is submitted, a new Course is created, associated with the
-department of the person performing the operation, and all its
-attributes are filled according to the information submitted by the
-user. The new object is then stored in the database, making it
+information is submitted, a new \texttt{Course} is created, associated
+with the department of the person performing the operation, and all
+its attributes are filled according to the information submitted by
+the user. The new object is then stored in the database, making it
 persistent and available for other users to view.
 
 In this scenario, in which all the information can be provided in a
@@ -192,7 +189,7 @@ database transaction is that the programmer can manipulate all the
 domain objects involved directly. The order in which the modifications
 to the objects are performed is irrelevant, as long as the domain is
 consistent when the transaction is committed. This is the semantics
-typically expected by a programmer of such applications: there may be
+typically expected by a programmer of such applications: There may be
 instants in which some domain objects are in an inconsistent state
 (e.g. before defining the course's bibliography), but this
 inconsistent state will never be seen by the other users of the
@@ -203,21 +200,21 @@ the operation is committed.
 
 The model described in the previous scenario, whereas simple and easy
 to implement, may not be suited for every situation. Imagine that
-instead of four attributes, Course had 50 attributes. It would then be
-unfeasible to ask the user to fill everything out in a single web
-page. So, the logical solution would be to split the various
-attributes in multiple pages, accounting for multiple user
+instead of four attributes, \texttt{Course} had 50 attributes. It
+would then be unfeasible to ask the user to fill everything out in a
+single web page. So, one possible solution would be to split the
+various attributes in multiple pages, accounting for multiple user
 interactions.
 
 Let us now assume that the creation of a course is made throughout
 three interactions. In the first interaction, the user selects the
-course's name, in the second interaction, the user introduces the
-objectives and credits, and in the final interaction, the user selects
+course's name; in the second interaction, the user introduces the
+objectives and credits; and in the final interaction, the user selects
 the bibliography, thus creating the course.
 
 At first glance, it would seem quite easy for a programmer to change
 the logic programmed in the first scenario to meet the new
-requirements: the programmer would simply have to split the code
+requirements: The programmer would simply have to split the code
 performed in a single request into three smaller parts, each to be
 executed in one request.
 
@@ -259,7 +256,7 @@ The programmer has several choices for the implementation:
   that are still in an inconsistent state.
 \end{enumerate}
 
-It should be clear that any of those solutions is far from trivial to
+It should be clear that any of these solutions is far from trivial to
 implement, has some serious consequences (presented below), and, as I
 will demonstrate, is an unnecessary burden to the programmer.
 
@@ -267,8 +264,8 @@ will demonstrate, is an unnecessary burden to the programmer.
 
 Given that atomicity and isolation are broken due to the fact that
 each interaction with the user is done within its own database
-transaction, we could think the solution would be to keep the database
-transaction open during the whole business transaction.
+transaction, we could think that the solution would be to keep the
+database transaction open during the whole business transaction.
 
 However, most modern Relational Database Management Systems (RDBMSs)
 do not cope well with transactions that are open for arbitrarily large
@@ -283,19 +280,19 @@ In this approach, a series of objects similar to the domain objects
 are created, and must be managed manually, kept in the user's session
 context, outside the domain.
 
-As the complexity of the domain, and the number of objects manipulated
-by the operation, grow, it becomes harder for the programmer to
-manually manage the data that must be kept. Ultimately, there is a
+As the complexity of the domain and the number of objects manipulated
+by the operation grows, it becomes harder for the programmer to manage
+manually all of the data that must be kept. Ultimately, there is a
 copy of the whole domain stored in the user's session, waiting for the
-last transaction to transactionally update the domain with all the
-information input by the user.
+last transaction to update the domain with all the information entered
+by the user.
 
 This is the opposite of what would be desirable for the programmer:
-she should be able to operate directly on the domain.
+She should be able to operate directly on the domain.
 
 \subsubsection{Changing the domain model}
 
-Now imagine that an additional requirement is added to the system: the
+Now imagine that an additional requirement is added to the system: The
 user may be allowed to log off in the middle of the process, and, upon
 logging back in, continue the work where she left off. Additionally,
 anyone else in the user's department should be able to pick up where
@@ -313,15 +310,15 @@ issue.
 
 A possible solution for this requirement is to change our domain
 model, by adding a new attribute to the objects being modified (in
-this case, Course, as shown in
-Figure~\ref{fig:courseDomainState}). The {\bf status} attribute
-indicates whether the course is in a consistent state (Published) or
-not (Draft). Adding this attribute has a cost: not only the domain
-becomes polluted with information that is not relevant to the object
-being modeled, but this solution affects other functional code across
-the application, because course listings must filter out courses that
-are still in the Draft status, scattering the filtering code
-throughout the application.
+this case, \texttt{Course}, as shown in
+Figure~\ref{fig:courseDomainState}). The \texttt{status} attribute
+indicates whether the course is in a consistent state
+(\texttt{Published}) or not (\texttt{Draft}). Adding this attribute
+has a cost: Not only the domain becomes polluted with information that
+is not relevant to the object being modeled, but this solution affects
+other functional code across the application (e.g., course listings
+must filter out courses that are still in the \texttt{Draft} status),
+scattering the filtering code throughout the application.
 
 \begin{figure}
   \centering
@@ -350,50 +347,44 @@ throughout the application.
 There are other approaches to Long-Lived Transactions, such as using
 the Database. There are some DBMSs that announce support for
 Long-Lived Transactions, such as Oracle's Workspace Manager. However,
-such support is not standardized, their API's are proprietary,
+such support is not standardised, their API's are proprietary,
 rendering Web frameworks unusable in those cases (they generally only
 support the SQL standard), forcing the application to be written
 against the proprietary API, making it very hard to change and
 maintain. All these factors contribute to make this approach
 inadmissible for most cases.
 
-\subsection{Applications of LLTs}
-
-Even though the example I just presented was targeted at a system with
-a rich domain model, there are several other applications of
-Long-Lived Transactions.
-
-\subsubsection{Database Management Systems}
-
-The example provided above is targeted at applications with a rich
-domain model, but there are many applications built directly on top of
-DBMSs. Those applications typically have requirements similar to those
-with a rich domain model, however, they must rely directly on the DBMS
-for transactional support.
-
-\subsubsection{Workflow Systems}
-
-Workflow Management Systems are another area in which Long-Lived
-Transactions are interesting. Workflow processes represent business
-transactions, consisting in a flow of steps or tasks, each of them
-possibly performed by different people.
-
-It is thus vital for Workflow Systems to embrace Long-Lived
-Transactions as a core concept, and many approaches have been
-developed in this area.
-
-Consider the Course Creation example. Assume that each step of the
-operation is executed by a different person. A Workflow Management
-System could be used to implement that operation.
-
 \subsection{Objectives}
 
-All this effort makes Long-Lived Transactions a concept that is very
-hard to implement, promotes bad software engineering practices
-(replication, code scattering, etc), and is difficult to reason
-about. My thesis is that the support for Long-Lived Transactions
-should be transparent, and at an infrastructural level, relieving the
-programmer from this burden.
+This Chapter shows that implementing Long Lived Transactions using
+current transaction support systems is a rather difficult task which
+promotes poor software engineering practices. As such, the work
+presented in this thesis aims at providing a solution that:
+
+\begin{itemize}
+
+\item Provides infrastructural-level support for Long Lived
+  Transactions
+
+\item Allows existing code to benefit from Long Lived Transactions
+  without any modifications
+
+\item Gives programmers a simple API to manage the life-cycle of Long
+  Lived Transactions
+
+\item Allows multiple concurrent users running separate steps of the
+  Long Lived Transaction
+
+\item Does not impose an overhead on the execution of regular
+  transactions
+
+\item Shows performance results comparable to those of regular
+  transactions
+
+\end{itemize}
+
+
+
 
 \section{Related Work}
 \label{sec:related}
