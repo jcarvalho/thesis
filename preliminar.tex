@@ -171,11 +171,17 @@ Over the past years, Software Transactional Memories have become more
 and more popular, growing to be something more than simply a research
 topic. On top of that, the concept has been extended to encompass
 persistence, so the concept of Persistent Software Transactional
-Memories (PSTM) was born. In this project, I propose an extension to
-PSTMs to support Long-Lived Transactions. My thesis is that supporting
-Long-Lived Transactions should be done at the infrastructural level on
-Persistent STMs, so I will describe how those systems can be extended
-to support Long-Lived Transactions.
+Memories (PSTM) was born. In this dissertation, I propose an extension
+to PSTMs to support Long-Lived Transactions. My thesis is that
+supporting Long-Lived Transactions should be done at the
+infrastructural level on top of a Persistent STM.
+
+I will describe the challenges that make Long Lived Transactions hard
+to implement, and propose a solution to address them. I will show how
+programmers can take advantage of Long Lived Transactions that can
+survive application restarts, require minimal code modifications,
+allow multiple concurrent users and show minimal overhead in relation
+to regular transactions.
 
 
 \newpage
