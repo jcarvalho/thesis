@@ -577,6 +577,25 @@ Once the nested transaction is committed, the parent
 that the only objects written in the parent transaction will be the
 ones representing the context and its \texttt{LogEntries}.
 
+\begin{figure}
+\centering
+\includegraphics[width=1\linewidth]{llt-step-lifecycle}
+\caption{LLTTransactionStep lifecycle}
+\label{fig:llt-lifecycle}
+\end{figure}
+
+Figure~\ref{fig:llt-lifecycle} recaps the lifecycle of a
+\texttt{LLTStepTransaction}. Figure \ref{fig:llt-lifecycle}a shows
+that as the step is running, the {\it current} transaction is the
+\texttt{LLTStepTransaction}, as such, reads and writes are kept in its
+Read/Write Sets. During the commit of the step
+(\ref{fig:llt-lifecycle}b), the {\it current} transaction is the
+parent (backend-specific), and the \texttt{LLTStepTransaction}'s
+Read/Write Sets are converted into \texttt{LogEntries}, written to the
+parent's Write Set. Finally, once all the \texttt{LogEntries} are
+created, the parent transaction is committed, persisting the step's
+changes (\ref{fig:llt-lifecycle}c).
+
 \subsubsection{Finishing the Long Lived Transaction}
 \label{sec:jvstm-commit}
 
@@ -768,8 +787,6 @@ transactions. As such, once the LLT is committing, it is able to read
 all the recorded data, and use it for all the necessary verifications
 and data updates.
 
-\newpage
-
 \subsection{Ease of Use}
 
 The primary goal of this work is to ease the development of Long Lived
@@ -794,42 +811,48 @@ manipulation (in particular creating and committing a
 Making every action performed by the user as a step of the Long Lived
 Transaction would be as simple as keeping the context in session-local
 storage, and binding it before every transaction start (using a Web
-Filter or similar). With this architecture, it is possible to make
-every operation in the application part of a Long Lived Transaction,
-without the need to change existing code, or changing the methodology
-used to develop new functionalities.
+Filter or similar). Listing~\ref{list:webFilter} shows a possible
+implementation of a Web Filter to accomplish the desired behaviour,
+and Listing~\ref{list:controller} shows how the session binding can be
+performed, using a industry-standard web framework.
 
-\begin{lstlisting}
-    @GET
-    @Path("/activate/{oid}")
-    public Response activate(@PathParam("oid") String oid) {
-        TransactionalContext context = getAndCheckContext(oid);
-        request.getSession(true).setAttribute(LONG_TX_SESSION_PARAM, context);
-        return Response.ok().build();
-    }
-    
-    @GET
-    @Path("/deactivate")
-    public Response deactivate() {
-        request.getSession().removeAttribute(LONG_TX_SESSION_PARAM);
-        return Response.ok().build();
-    }
+With this architecture, it is possible to make every operation in the
+application part of a Long Lived Transaction, without the need to
+change existing code, or changing the methodology used to develop new
+functionalities.
+
+\begin{lstlisting}[caption={Controller methods to associate a
+    TransactionalContext with a user's session},label={list:controller},float]
+@RequestMapping("/activate/{oid}")
+public void activate(@PathParam String oid) {
+  // Get the TransactionalContext from the given OID
+  TransactionalContext ctx = getAndCheckContext(oid);
+  request.getSession().setAttribute(LONG_TX_SESSION_PARAM,ctx);
+}
+
+@RequestMapping("/deactivate")
+public void deactivate() {
+  request.getSession().removeAttribute(LONG_TX_SESSION_PARAM);
+}
 \end{lstlisting}
 
-\begin{lstlisting}
+\begin{lstlisting}[caption={Web Filter to wrap every transaction in a
+    TransactionalContext},label={list:webFilter},float]
 public void doFilter(ServletRequest request, 
-                          ServletResponse response, FilterChain chain) {
-        HttpSession session = request.getSession();
-        TransactionalContext context = session.getAttribute(LONG_TX_SESSION_PARAM);
-        if (context == null) {
-            chain.doFilter(request, response);
-        } else {
-            LongTransaction.setContextForThread(context);
-            try {
-                chain.doFilter(request, response);
-            } finally {
-                LongTransaction.removeContextFromThread();
-            }
-        }
+                     ServletResponse response,
+                     FilterChain chain) {
+  HttpSession session = request.getSession();
+  TransactionalContext context = 
+                   session.getAttribute(LONG_TX_SESSION_PARAM);
+  if (context == null) {
+    chain.doFilter(request, response);
+  } else {
+    LongTransaction.setContextForThread(context);
+    try {
+      chain.doFilter(request, response);
+    } finally {
+      LongTransaction.removeContextFromThread();
     }
+  }
+}
 \end{lstlisting}
