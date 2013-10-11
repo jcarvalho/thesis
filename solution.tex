@@ -2,10 +2,9 @@
 \label{chap:solution}
 
 With a proper understanding of the Fenix Framework, this chapter
-describes the solution proposed to solve the problem of relieving
-programmers of the effort of programming Long Lived
-Transactions. Section~\ref{sec:challenges} describes the challenges
-faced when implementing Long Lived
+describes the solution proposed to simplify the development of Long
+Lived Transactions. Section~\ref{sec:challenges} describes the
+challenges faced when implementing Long Lived
 Transactions. Section~\ref{sec:arch} describes the architecture of the
 proposed solution, with the rationales for each design
 decision. Section~\ref{sec:impl} describes how the proposed
@@ -31,10 +30,11 @@ is that most DBMSs are not prepared to handle transactions open for
 long periods of time.
 
 A naive approach when implementing LLTs on top of the JVSTM could
-simply be running each step on the context of a regular transaction,
-suspending it in between steps, only committing it in the end of the
-LLT. This approach presents several similarities with the approach
-presented above, including some of the limitations:
+simply be running each step of the LLT on the context of a regular
+transaction, suspending it in between steps, only committing it in the
+end of the LLT. This approach presents several similarities with the
+approach of using a single database transaction, including some of the
+limitations:
 
 \begin{itemize}
 
@@ -90,11 +90,11 @@ regular transaction, we can identify three major pieces:
 \begin{itemize}
 \item The version in which the transaction is running. This version
   number corresponds to the logical point in time at which the
-  transaction occurred (i.e. its serialization point).
+  transaction started.
 \item A list of all the items written throughout the transaction (and
   the respective written values). This is the critical piece, as it
-  contains the updated data that will be written to the global context
-  on transaction's commit.
+  contains the updated data that will be written to the global state
+  of the application on transaction's commit.
 \item A list of all elements read throughout the transaction. This
   piece of information is critical to ensure the correctness of the
   operation, as the outcome of the transaction may depend on the
@@ -109,29 +109,29 @@ transactions as its building blocks.
 
 Short lived transactions keep all the necessary information in
 transient transaction-local storage (typically in memory), until the
-time they commit, merging the write set with the global context. With
-Long Lived Transactions, merging this write set in each step is not
-possible. 
+time they commit, merging the write set with the global state of the
+application. With Long Lived Transactions, merging this write set in
+each step is not possible.
 
 Recall the Course creation example. Consider that in the first step a
 Course is created with only a name and the department it is associated
-to. Merging the Write Set for this step with the global context would
+to. Merging the Write Set for this step with the global state would
 leave the system in an inconsistent state in which the departement is
 associated to an unfinished course, as this transitory state would be
 visible to the outside world.
 
 There needs to be a way to persistently store the Write Set of each
-step, outside the global context so that the changes are not visible
-to the outside world. Only upon committing the Long Lived Transaction
-these changes would be merged to the global context, meaning that the
-writes performed by each step are effectively delayed until the end of
-the transaction. Note that for correctness purposes, the Read Set of
-the transaction must also be collected, so that at commit time both
-Read Set and Write Set can be replicated, taking advantage of the
-already existing JVSTM support.
+step, outside the global state of the application so that the changes
+are not visible to the outside world. Only upon committing the Long
+Lived Transaction these changes would be merged to the global state,
+meaning that the writes performed by each step are effectively delayed
+until the end of the transaction. Note that for correctness purposes,
+the Read Set of the transaction must also be collected, so that at
+commit time both Read Set and Write Set can be replicated, taking
+advantage of the already existing JVSTM support.
 
 As the main feature of the Fenix Framework is providing mechanisms to
-transactionally manipulate and persist Domain Objects, perhaps it
+manipulate transactionally and to persist Domain Objects, perhaps it
 would be a good approach to use regular Domain Objects to store the
 required information.
 
@@ -161,12 +161,12 @@ the transaction (whether it is started, committed, aborted or in
 conflict) and the version marker (corresponding to the ``current''
 version when the first step of the transaction executed).
 
-A context has two associated sets of \texttt{LogEntries}, one for the
-Read Set and one for the Write Set. A \texttt{LogEntry} represents one
-read or written slot throughout the transaction, by keeping a
-reference to the object, slot name, as well as the value that was
-written (note that the value is only kept if the LogEntry belongs to
-the Write Set).
+A \texttt{TransactionalContext} has two associated sets of
+\texttt{LogEntries}, one for the Read Set and one for the Write Set. A
+\texttt{LogEntry} represents one read or written slot throughout the
+transaction, by keeping a reference to the object, slot name, as well
+as the value that was written (note that the value is only kept if the
+LogEntry belongs to the Write Set).
 
 Once again recall the Course creation example, in which a Long Lived
 Transaction is used to perform a multi-step creation of a new Course
@@ -183,16 +183,12 @@ for a given Department. To perform such operation, a new
 
 In the first step, a new Course named ``Software Engineering'' is
 created, and it is added to the CS department. As this step performed
-a single read and two writes, three \texttt{LogEntries} are created: 
-\begin{inparaenum}[\itshape a\upshape)]
-\item In the Read Set representing the reading of the department's
-  Course list
-\item In the Write Set representing the updaded Course list for the CS
-  department
-\item In the Write Set representing the name slot for the newly
-  created course.
-\end{inparaenum}
-Note that as this step was the first, the version of the
+a single read and two writes, three \texttt{LogEntries} are created:
+{\it (1)} In the Read Set representing the reading of the department's
+Course list, {\it (2)} In the Write Set representing the updaded
+Course list for the CS department, {\it (3)} and in the Write Set
+representing the name slot for the newly created course.  Note that as
+this step was the first, the version of the
 \texttt{TransactionalContext} is now defined as the ``current''
 version. Figure~\ref{fig:course-logEntries}b shows the contents of the
 context after the execution of the first step.
@@ -204,8 +200,8 @@ implementation of Long Lived Transactions, but it is just the
 beginning. Whereas these structures are agnostic to the specific
 backend, the backend must be able to recognise when a transaction is
 executing within the context of a Long Lived Transaction, so that
-reads and writes are isolated from the global context (otherwise the
-whole world could see the intermediate values).
+reads and writes are isolated from the global state of the application
+(otherwise the whole world could see the intermediate values).
 
 In the Fenix Framework, transactions are bound to a specific thread,
 allowing for multi-threaded applications to execute multiple
@@ -213,18 +209,18 @@ concurrent transactions, each one in its own thread. As such, to run a
 transaction in the context of a Long Lived Transaction, one must first
 bind the context to the current thread. This way, when beginning a new
 Transaction, the backend will check for the presence of a
-\texttt{TransactionContext}, to determine whether to start a regular
+\texttt{TransactionalContext}, to determine whether to start a regular
 transaction or a LLT step. Listing~\ref{list:longTxBind} shows the
 programmer API for binding a \texttt{TransactionalContext} to a given
 thread. This way, the programmer is free to run any piece of
-transactional context as a step of a Long Lived Transaction.
+transactional code as a step of a Long Lived Transaction.
 
 \begin{lstlisting}[caption={Example of TransactionalContext usage},
   label={list:longTxBind},float]
 public void runStep(TransactionalContext context) {
+  // IllegalStateException if already within a context
+  LongTransaction.setContextForThread(context);
   try {
-    // IllegalStateException if already within a context
-    LongTransaction.setContextForThread(context);
     transactionalOperation();
   } finally {
     LongTransaction.removeContextFromThread();
@@ -274,9 +270,9 @@ all elements of the Read Set must be validated to be in the same
 version, thus ensuring that all writes were performed based on fresh
 data (more details on how this is accomplished in
 Section~\ref{sec:jvstm-commit}). If the validation step is successful,
-all the written data must be merged into the global context, by
-iterating over all \texttt{LogEntries} in the Write Set, and writing
-the recorded value to the correct slot.
+all the written data must be merged into the global state of the
+application, by iterating over all \texttt{LogEntries} in the Write
+Set, and writing the recorded value to the correct slot.
 
 To ensure the correctness of the commit operation, both validation and
 merge are performed within a regular transaction, in a
@@ -321,7 +317,7 @@ backend code).
 
 The {\bf long-tx-api} module is pretty straightforward. It contains
 the domain definition described in
-Figure~\ref{fig:transactionalContext}, The domain is public API, so
+Figure~\ref{fig:transactionalContext}. The domain is public API, so
 that Long Lived Transactions can be associated with any
 programmer-defined object (e.g., to a user, to a group, a process
 etc). This design decision allows for a simple solution, as
@@ -349,24 +345,25 @@ provided by the backend:
   context-aware transaction.
 
 \item {\bf Intercepting reads/writes} Ensure that reads and writes
-  performed in LLT steps are not performed to the global context.
+  performed in LLT steps are not performed to the global state of the
+  application.
 
 \item {\bf Context commit} Once the Long Lived Transaction is
-  finished, merge its changes with the global context.
+  finished, merge its changes with the global state.
 
 \end{itemize}
 
 \subsubsection{Context Detection}
 
 When beginning a transaction in \texttt{jvstm-common}, the backend
-checks for the presence of a \texttt{TransactionalContext} bound to
+checks for the presence of a \texttt{Transactional Context} bound to
 the current thread, and if one is present, the following happens:
 
 \begin{enumerate}
 
 \item A regular transaction is started. This transaction will be used
   to access the context and previous versions of VBoxes (for when a
-  read is made and the context cannot not provide a value).
+  read is made and the context cannot provide a value).
 
 \item A nested \texttt{LLTStepTransaction} is started. This will be the
   active transaction, and route reads and writes to the corresponding
@@ -379,22 +376,21 @@ the current thread, and if one is present, the following happens:
 
 \end{enumerate}
 
-\begin{lstlisting}[caption={Beginning a new Long Lived Transaction
-    step}, float]
-if (LongTransactionSupport.isInsideContext()) {
-  TransactionalContext context = 
-      LongTransactionSupport.getContextForThread();
+This algorithm is shown in Listing~\ref{list:stepStart}.
 
+\begin{lstlisting}[caption={Beginning a new Long Lived Transaction
+    step}, label={list:stepStart}, float]
+TransactionalContext context = 
+    LongTransactionSupport.getContextForThread();
+if (context != null) {
   // Begin a new Top Level Write-Transaction
   JvstmInFenixTransaction underlying =
       Transaction.begin(false);
 
-  LLTStepTransaction longTx = 
+  LLTStepTransaction longTxStep = 
       new LLTStepTransaction (context, underlying);
 
-  longTx.start();
-
-  transactions.set(new JVSTMTransaction(longTx));
+  longTxStep.start();
 }
 
 (...)
@@ -425,11 +421,13 @@ to intercept the reading and writing of boxes, ensuring that such
 reads and writes are both isolated from the outside world and
 collected into the \texttt{TransactionalContext}.
 
-Just like regular transaction, writing a VBox will simply keep the
+Just like in regular transactions, writing a VBox will simply keep the
 written value in the transaction's Write Set. This Write Set will be
 processed when committing the step. 
 
-\begin{lstlisting}[caption={Reading a VBox within a Context},float]
+\begin{lstlisting}[caption={Reading a VBox within a
+    LLTStepTransaction}, label={list:boxRead}, float]
+// In the LLTStepTransaction class
 public <T> T getBoxValue(VBox<T> vbox) {
   // Check the local Write Set
   T result = getLocalValue(vbox);
@@ -453,16 +451,16 @@ public <T> T getBoxValue(VBox<T> vbox) {
 }
 
 private <T> T lookupBoxValueInContext(VBox<T> vbox) {
+  JVSTMDomainObject owner = vbox.getOwnerObject();
+  String slotName = vbox.getSlotName();
+
   LogEntry writeSetEntry = context.getWriteSet();
+
   while (writeSetEntry != null) {
-    if (writeSetEntry.getDomainObject().
-                             equals(vbox.getOwnerObject()) &&
-        writeSetEntry.getSlotName().
-                             equals(vbox.getSlotName())) {
+    if (writeSetEntry.getDomainObject().equals(owner) &&
+        writeSetEntry.getSlotName().equals(slotName)) {
       String contents = writeSetEntry.getContents();
-      return vbox.getOwnerObject().
-                         getValueFromJSON(vbox.getSlotName(),
-                                                       contents);
+      return owner.getValueFromJSON(slotName, contents);
     }
     writeSetEntry = writeSetEntry.getNextEntry();
   }
@@ -472,8 +470,8 @@ private <T> T lookupBoxValueInContext(VBox<T> vbox) {
 
 \end{lstlisting}
 
-When reading a VBox within a \texttt{LLTStepTransaction}, the following
-steps are executed:
+The algoritm for reading a VBox within a \texttt{LLTStepTransaction} is shown in
+Listing~\ref{list:boxRead}. It consists of the following steps:
 
 \begin{enumerate}
 
@@ -481,7 +479,7 @@ steps are executed:
   written value. This is accomplished by looking up the value in the
   step's own transient Write Set.
 
-\item In case the VBox being read belongs to either a
+\item In case the VBox being read is owned by either a
   \texttt{TransactionalContext} or a \texttt{LogEntry}, the read is
   delegated to the parent transaction in the current version (so that
   always the latest version is read). Such reads will typically be
@@ -515,24 +513,21 @@ during the transaction. Recall that in each step the Read Set and
 Write Set of the step must contain only the changes to the context
 that reflect what has been read and written. As such, when committing
 the step, the Read Set and Write Set are processed in the following
-manner:
+manner (Listing~\ref{list:stepCommit} shows the detailed algorithm):
 
 \begin{lstlisting}[caption={Algorithm for committing a Long Lived
-    Transaction's step}, float]
-protected void tryCommit() {
+    Transaction's step}, label={list:stepCommit}, float]
+protected void commit() {
   // Go through the ReadSet and the WriteSet
   // No consistency validations are performed here, as the 
   // purpose of this transaction is to manipulate the contents
   // of the read/write set.
-  Map<VBox, Object> originalWriteSet = 
-                new HashMap<VBox, Object>(boxesWritten);
-  Set<VBox> originalReadSet = new HashSet(bodiesRead.keySet());
 
-  // Clear read/write-set, will be populated with LogEntries
-  boxesWritten.clear();
-  bodiesRead.clear();
+  // Ensure the LogEntry creation is performed within
+  // the parent transaction
+  Transaction.setCurrent(parent);
 
-  for (Entry<VBox, Object> entry : originalWriteSet.entrySet()) 
+  for (Entry<VBox, Object> entry : boxesWritten.entrySet()) 
   {
     VBox<?> vbox = (VBox<?>) entry.getKey();
 
@@ -548,65 +543,64 @@ protected void tryCommit() {
     context.addWriteSetEntry(owner, vbox.getSlotName(), json);
   }
 
-  for (VBox vbox : originalReadSet) {
+  for (VBox vbox : bodiesRead.keySet()) {
     // Create a new LogEntry if this slot wasn't
     // read in a previous step
     context.addReadSetEntry(vbox.getOwnerObject(), 
                             vbox.getSlotName());
   }
 
-  // Add the new read/written boxes to the parent transaction,
-  // which will ensure the LogEntries are properly committed
-  super.tryCommit();
+  // At this point, the parent transaction has the 
+  // TransactionalContext and the updated LogEntries
+  // in its Read and Write Set
 }
 \end{lstlisting}
 
 \begin{enumerate}
 
-\item The original Read and Write Sets are backed up and cleared.
+\item The parent transaction is set as the current transaction.
 
 \item For each item in the original Write Set, the written value is
   converted to JSON and it is added to the
-  \texttt{TransactionalContext}. As this operation is still running
-  within the context of the transaction, the changes are added to the
-  real Write Set transparently.
+  \texttt{TransactionalContext}. As this operation runs within the
+  parent (backend-specific) transaction, the newly created and updated
+  \texttt{LogEntries} are added to the Read and Write sets of the
+  parent transaction.
 
 \item The same is done to the Read Set.
-
-\item The new Read and Write Sets are merged with the parent
-  transaction, and the nested transaction is committed.
 
 \end{enumerate}
 
 Once the nested transaction is committed, the parent
 (backend-specific) transaction will ensure that the updated
 \texttt{TransactionalContext} is stored in persistent support. Note
-that the only objects written will be the ones representing the
-context and its \texttt{LogEntries}.
+that the only objects written in the parent transaction will be the
+ones representing the context and its \texttt{LogEntries}.
 
 \subsubsection{Finishing the Long Lived Transaction}
 \label{sec:jvstm-commit}
 
-Once all steps of the Long Lived Transaction are finished, the
-transaction must be committed, ensuring that the changes performed in
-it are visible to the outside world. Much of this process is heavily
+Once all steps of the Long Lived Transaction are finished, the LLT
+must be committed, ensuring that the changes performed in it are
+visible to the outside world. Much of this process is heavily
 dependent on the backend as it involves direct access to the
 underlying data structures.
 
 The commit process of a Long Lived Transaction occurs within a regular
 transaction. In this process, the data collected throughout the
 multiple steps is validated and replayed. Once this transaction
-commits, all written data will be merged with the global context.
+commits, all written data will be merged with the global state of the
+application. The commit algorithm is shown in Listing~\ref{list:lltCommit}.
 
-The first step in committing the context is verifying whether all the
-read data is still valid. As every slot is mapped in a JVSTM VBox, all
-the boxes corresponding to the read slots must be verified. The
-process iterates over all read slots, locating the VBox that
-represents the slot. It then reads the VBox, so that it is added to
-the Read Set of the current transaction. Then, the latest version of
-the VBox is compared to context's version, thus ensuring that the read
-value was the latest. If the box's current version if posterior to the
-read version, the Long Lived Transaction is aborted.
+The first step in committing the LLT is verifying whether all the read
+data is still valid. As every slot is mapped in a JVSTM VBox, all the
+boxes corresponding to the read slots must be verified. The process
+iterates over all read slots, locating the VBox that represents the
+slot. It then reads the VBox, so that it is added to the Read Set of
+the current transaction. Then, the latest version of the VBox is
+compared to context's version, thus ensuring that the read value was
+the latest. If the box's current version if posterior to the read
+version, the Long Lived Transaction is aborted.
 
 There is a critical subtlety in this verification
 process. Modifications to the VBox's underlying data structures are
@@ -631,17 +625,17 @@ will be restarted, and the version verification will fail, marking the
 Long Lived Transaction as conflicting.
 
 Once the Read Set of the Long Lived Transaction is validated, the
-Write Set must be merged into the global context. This process
-iterates over the written slots, and for each slot: (1) Locates the
-VBox representing it, (2) Converts the JSON value to the concrete value,
-and (c) Writes the value to the VBox.
+Write Set must be merged into the global state of the
+application. This process iterates over the written slots, and for
+each slot: (1) Locates the VBox representing it, (2) Converts the JSON
+value to the concrete value, and (c) Writes the value to the VBox.
 
 After the merge process is finished, the committing transaction has a
 full mirror of the LLT's Read and Write Sets, and once it commits,
 every change in the Write Set is available to the outside world.
 
 \begin{lstlisting}[caption={Implementation of the Long Lived
-    Transaction commit operation},float]
+    Transaction commit operation}, label={list:lltCommit}, float]
 void commitContext(TransactionalContext context) {
   // Don't do anything if nothing was written
   if (context.getWriteSet() != null) {
@@ -705,20 +699,19 @@ is ensuring that the solution provides the same correctness guarantees
 as regular transactions. I will now demonstrate that the proposed
 solution provides the same correctness guarantees as regular transactions.
 
-Transactions in the JVSTM are ACI compliant (they provide Atomicity,
-Consistency and Isolation), with an Opacity isolation level (refer to
-Section~\ref{sec:opacity}). When integrated with the Fenix Framework,
-transactions may also provide the Durability property, depending on
-whether the concrete backend supports persistence.
+Transactions in the JVSTM satisfy the Opacity correctness properties
+(refer to Section~\ref{sec:opacity}). When integrated with the Fenix
+Framework, transactions may also provide the Durability property,
+depending on whether the concrete backend supports persistence.
 
-The proposed solution also provides all the ACID properties for Long
-Lived Transactions, as well as an Opacity isolation level.
+The proposed solution also all the ACID properties for Long
+Lived Transactions, as well as the Opacity correctness property.
 
 \begin{itemize}
 
 \item {\bf Atomicity} is provided as all the writes performed during
-  the LLT are only written to the global context when the it commits,
-  which is performed by a regular transaction.
+  the LLT are only written to the global state of the application when
+  the it commits, which is performed by a regular transaction.
 
 \item {\bf Consistency} is provided in the same way as a regular
   transaction, by ensuring that every read is still valid at commit
@@ -755,10 +748,9 @@ transactions, written values are kept in transaction-local storage
 (i.e. in \texttt{LogEntries}) and as such, can only be accessed by the
 transaction itself.
 
-
 {\bf Durability} is an ``optional'' property, as not all JVSTM-based
 backends provide persistent support. Those that do however, ensure
-that the effects of Long Lived Transactions as durable, as it works as
+that the effects of Long Lived Transactions are durable, as it works as
 if writes occurred in a single regular transaction (which already
 provides the Durability property).
 
@@ -775,6 +767,8 @@ each operation a record is created. Such records are kept in
 transactions. As such, once the LLT is committing, it is able to read
 all the recorded data, and use it for all the necessary verifications
 and data updates.
+
+\newpage
 
 \subsection{Ease of Use}
 
@@ -798,10 +792,44 @@ manipulation (in particular creating and committing a
 \texttt{TransactionalContext}).
 
 Making every action performed by the user as a step of the Long Lived
-Transaction would be a simple as keeping the context in session-local
+Transaction would be as simple as keeping the context in session-local
 storage, and binding it before every transaction start (using a Web
 Filter or similar). With this architecture, it is possible to make
-EVERY operation in the application part of a Long Lived Transaction,
+every operation in the application part of a Long Lived Transaction,
 without the need to change existing code, or changing the methodology
 used to develop new functionalities.
 
+\begin{lstlisting}
+    @GET
+    @Path("/activate/{oid}")
+    public Response activate(@PathParam("oid") String oid) {
+        TransactionalContext context = getAndCheckContext(oid);
+        request.getSession(true).setAttribute(LONG_TX_SESSION_PARAM, context);
+        return Response.ok().build();
+    }
+    
+    @GET
+    @Path("/deactivate")
+    public Response deactivate() {
+        request.getSession().removeAttribute(LONG_TX_SESSION_PARAM);
+        return Response.ok().build();
+    }
+\end{lstlisting}
+
+\begin{lstlisting}
+public void doFilter(ServletRequest request, 
+                          ServletResponse response, FilterChain chain) {
+        HttpSession session = request.getSession();
+        TransactionalContext context = session.getAttribute(LONG_TX_SESSION_PARAM);
+        if (context == null) {
+            chain.doFilter(request, response);
+        } else {
+            LongTransaction.setContextForThread(context);
+            try {
+                chain.doFilter(request, response);
+            } finally {
+                LongTransaction.removeContextFromThread();
+            }
+        }
+    }
+\end{lstlisting}

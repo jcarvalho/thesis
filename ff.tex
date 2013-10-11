@@ -3,7 +3,7 @@
 
 ``Fenix Framework allows the development of Java-based applications
 that need a {\it transactional and persistent domain
-  model.}''\footnote{http://fenix-framework.github.io}
+  model.}''\footnote{\url{http://fenix-framework.github.io}}
 
 This chapter describes in detail the major components of the Fenix
 Framework, which is the Framework used to implement the solution
@@ -39,8 +39,8 @@ could be described in the DML. Note that as arrays are not natively
 supported, a Value Type must be created, describing an array of
 publications. Value Types are described in more detail below.
 
-\begin{lstlisting}[caption={DML for the {\it Course} and {\it
-      Department} classes},
+\begin{lstlisting}[caption={DML for the \texttt{Course} and 
+  \texttt{Department} classes},
   label={list:class-example}, float]
 class Course {
   String name;
@@ -72,8 +72,8 @@ To-many relations in the Fenix Framework have Set semantics, meaning
 that an object can only be present in a relation once. Also, there are
 no ordering guarantees when accessing the relation.
 
-\begin{lstlisting}[caption={DML for the relation between {\it Course}
-    and {\it Department}},label={list:relation-example}]
+\begin{lstlisting}[caption={DML for the relation between \texttt{Course}
+    and \texttt{Department}},label={list:relation-example}]
 relation DepartmentHasCourses {
   Department playsRole department {
     multiplicity 1..1;
@@ -86,19 +86,20 @@ relation DepartmentHasCourses {
 
 Listing~\ref{list:relation-example} shows how the relation presented
 in Figure~\ref{fig:courseDomain} could be described in the DML. The
-relation is given a name that accurately describes the relationship
-between the two classes, as well as names to describe the role each
-class takes in the relation. The multiplicity is defined for each of
-the roles, in this case, one {\it Department} has zero or more {\it
-  Courses}, and one {\it Course} has between one and one (exactly one)
-{\it Department}.
+relation is given a name that describes the relationship between the
+two classes, as well as names to describe the role each class takes in
+the relation. The multiplicity is defined for each of the roles, in
+this case, one \texttt{Department} has zero or more \texttt{Courses},
+and one \texttt{Course} has between one and one (exactly one)
+\texttt{Department}.
 
 
 From the domain definition, the Fenix Framework generates Java getters
 and setters for the properties and relations. For each class described
 in the DML, two Java classes are created: the domain class, in which
-programmers can include business logic, and an {\it Base} (which the
-domain class extends) containing 
+programmers can include business logic, and a \texttt{Base} class
+(which the domain class extends) containing generated methods to
+access the persistent entities of the object.
 
 Consider the DML on
 Listing~\ref{list:class-example}. Listing~\ref{list:courseCode} shows
@@ -118,8 +119,8 @@ methods to add and remove an element from the Set.
 
 Whereas in the code shown in this document the body of such methods is
 \texttt{/* Generated */}, the actual code will depend on the backend
-used in runtime. More details about the Code Generation process in
-Section~\ref{sec:codeGen}.
+used in runtime. More details about the Code Generation process are
+given in Section~\ref{sec:codeGen}.
 
 \begin{lstlisting}[caption={Generated Course class},
 label={list:courseCode}, float]
@@ -166,8 +167,9 @@ values for slots of DML classes, and must be of well-known types,
 known as Value Types.
 
 A value type contains information regarding the Java Type (such as
-{\it java.math.BigDecimal}), an alias (such as {\it BigDecimal}), and information
-regarding how the object will be externalised/internalized. 
+\texttt{java.math.BigDecimal}), an alias (such as
+\texttt{BigDecimal}), and information regarding how the object will be
+externalised/internalized.
 
 There are two categories of Value Types: Builtin (Java Primitives and
 their wrappers, Enums, JodaTime types, JsonElement, and byte arrays)
@@ -193,7 +195,7 @@ replacing XML in many cases.
 
 As such, in the context of this work, the Framework was extended to
 provide native JSON support (by allowing it as a Builtin Value Type),
-using Google's GSON\footnote{http://code.google.com/p/google-gson/}.
+using Google's GSON\footnote{\url{http://code.google.com/p/google-gson/}}.
 Using JSON allows the programmer to define arbitrarily complex Value
 Types with little effort, as well as simplifying externalisation code.
 
@@ -236,12 +238,12 @@ Framework.
 The DML Compiler module contains the parser responsible for reading
 DML files and creating an in-memory description of the Domain Model,
 as well as all the necessary classes to represent it. It also contains
-the base {\it DomainObject} interface, which all objects of the Domain
+the base \texttt{DomainObject} interface, which all objects of the Domain
 Model implement. Also present in this module are the base Code
 Generators used to create the Base classes for all domain
 objects.
 
-The core of the Framework is in the 'Core API' module. Transaction
+The core of the Framework is in the \texttt{Core API} module. Transaction
 management APIs, configuration, entry points, backend interfaces, are
 all defined in this module.
 
@@ -274,7 +276,7 @@ The public API is split in two major components:
   on the DML, which must be supported by all backends.
 
 \item {\bf Core API} Provides the entry point for the domain's object
-graph through the {\it DomainRoot} class, the mechanism to retrieve a
+graph through the \texttt{DomainRoot} class, the mechanism to retrieve a
 Domain Object from its unique identifier, transaction APIs that can be
 used to either mark a piece of code as transactional (@Atomic
 annotation) or to manually manage the lifecycle of transactions, and
@@ -282,7 +284,7 @@ utilities to configure the Framework.
 \end{itemize}
 
 With this separation, the classpath of the application modules is not
-'polluted' with implementation details, allowing for a faster
+polluted with implementation details, allowing for a faster
 development and test cycle.
 
 \subsection{Backends}
@@ -327,7 +329,7 @@ There are two major components in code generation:
   base ones, thus providing the same API, using backend-specific
   artifacts to fullfil the API. Backends can also use code generators
   to optimise runtime performance, by injecting in generated code
-  values that otherwise would have to be computed in runtime.
+  values that otherwise would have to be computed at runtime.
 \end{itemize}
 
 Whereas this Code Generation architecture allows for great
@@ -343,7 +345,7 @@ are always generated public) among other issues.
 
 The Code Generation step also provides a mechanism to transfer
 compile-time information to the runtime. Information such as the App
-Name (which is used in runtime to generate the graph of DML
+Name (which is used at runtime to generate the graph of DML
 dependencies), the name of the Backend used to compile the final
 application (to allow for automatic initialization), as well as pass
 user-defined parameters to runtime.
@@ -357,35 +359,37 @@ Software Transactional Memory (see Section~\ref{sec:stm}).
 
 The JVSTM uses the concept of Versioned Boxes (VBoxes) to make a
 memory location transactional, keeping the history of values for that
-position, one for each version of the world. Reads and writes to
-VBoxes are tracked by the JVSTM in a per-transaction basis.
+position, one for each version of the box. Reads and writes to VBoxes
+are tracked by the JVSTM in a per-transaction basis.
 
 Each transaction begins at a given moment, acquiring the version
 number at that moment. The version number is used during the
 transaction to ensure that all reads get the correct value at the time
-of the transaction's start, thus providing Opacity guarantees. This
-allows for conflict-free read-only transactions, as concurrent
-transactions writing to the read boxes will write a new version
-instead of overwriting its previous value.
+of the transaction's start, thus providing Opacity guarantees
+\cite{guerraoui2008correctness}. This allows for conflict-free
+read-only transactions, as concurrent transactions writing to the read
+boxes will write a new version instead of overwriting its previous
+value.
 
 \subsection{Integration}
 
 The JVSTM is integrated with the Fenix Framework, as one of the
 multiple available backends. This document focuses on the backend
-named 'jvstm-common'. This backend uses the JVSTM for the
+named \texttt{jvstm-common}. This backend uses the JVSTM for the
 transactional support, while abstracting the persistence
-details. Despite being meant to be extended, 'jvstm-common' provides
-an in-memory implementation of the persistence API.
+details. Despite being meant to be extended, \texttt{jvstm-common}
+provides an in-memory implementation of the persistence API.
 
 The implementation of the solution proposed in
 Chapter~\ref{chap:solution} rests on top of this abstract backend,
 meaning that it will work on top of any persistent support, as long as
 the JVSTM is used.
 
-In this backend, Base classes use VBoxes to transactionally store the
-value objects, thus taking advantage of the JVSTM. The generated
-getters and setters are backed by VBox.set() and VBox.get(), and can
-only be invoked from within a transaction.
+In this backend, Base classes use VBoxes to store the value objects
+transactionally, thus taking advantage of the JVSTM. The generated
+getters and setters are backed by \texttt{VBox.get()} and
+\texttt{VBox.set()}, and can be invoked only from within a
+transaction.
 
 \subsection{VBoxes}
 
@@ -409,9 +413,9 @@ Garbage-Collected and reloaded from persistent support on-demand.
 
 \subsubsection{VBoxes for slots}
 
-There are two layouts for Domain Object's slots: {\it 1)} Using one VBox to
-keep the entire state of the object (One-Box), and {\it 2)} Using one VBox
-per slot (Multi-Box).
+There are two layouts for Domain Object's slots: {\it (1)} Using one
+VBox to keep the entire state of the object (One-Box), and {\it (2)}
+Using one VBox per slot (Multi-Box).
 
 The first layout suffers from a higher number of conflicts, as reading
 one slot will conflict with writing another slot on the same object
@@ -423,7 +427,7 @@ domain model, with many objects and many slots.
 Smaller applications can use the Multi-Box layout to greatly reduce
 conflicts. In this layout, each domain slot is given its own VBox.
 
-In both layouts, a specialised VBox called {\it PrimitiveBox} is
+In both layouts, a specialised VBox called \texttt{PrimitiveBox} is
 used to store either the object's state or the slot's value. There is
 no added behaviour or data in a PrimitiveBox, however persistence
 support uses this information to determine whether to reload a box
@@ -435,17 +439,16 @@ In the One-Box layout, to-one relations are kept inside the object's
 state, and as such require no special handling. 
 
 On the other hand, for a Multi-Box layout, the reference to the
-related object is kept in a {\it ReferenceBox}. Just like a {\it
-  PrimitiveBox}, it contains no extra behaviour or data, and serves
-only as a marker for persistence support to know it has to load an
-object reference.
+related object is kept in a \texttt{ReferenceBox}. Just like a
+\texttt{PrimitiveBox}, it contains no extra behaviour or data, and
+serves only as a marker for persistence support to know it has to load
+an object reference.
 
 To-many relations however, are handled in a very different manner. The
-preferred approach is to use a B+Tree\footnote{See
-  $http://en.wikipedia.org/wiki/B+_tree$} to store the objects on the
-to-many side of the relation. For each to-many relation, a {\it
-  ReferenceBox} is generated, containing a reference to the domain
-object representing the B+Tree.
+preferred approach is to use a B+Tree \cite{elmasri2009fundamentals}
+to store the objects on the to-many side of the relation. For each
+to-many relation, a {\it ReferenceBox} is generated, containing a
+reference to the domain object representing the B+Tree.
 
 The Fenix Framework provides an implementation of persistent B+Trees
 that does not use to-many relations (by design, so it can be used to

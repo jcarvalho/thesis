@@ -16,7 +16,7 @@ applications, STMs have been extended to collaborate with persistent
 storage systems, giving birth to the concept of {\it Persistent
   Software Transactional Memory} \cite{fernandes2011strict}. Thus,
 several enterprise applications, such as the FenixEdu\footnote{See
-  \texttt{http://www.fenixedu.org}} web application, are now using
+  \url{http://www.fenixedu.org}} web application, are now using
 PSTMs for transactional support.
 
 Long-Lived Transactions (LLTs) were first described in 1981 as ``[..]
@@ -30,7 +30,7 @@ support is either non existing or lackluster.
 In this thesis, I aim at adding support for Long-Lived Transactions in
 applications with Rich Domain Models.  A Rich Domain Model is ``An
 object model of the domain that incorporates both behaviour and
-data.``, as described by \cite{fowler2003patterns}, meaning that
+data.'', as described by \cite{fowler2003patterns}, meaning that
 domain objects hold both their data and the business logic that
 manipulates them, as opposed to an Anemic Domain Model, in which the
 domain objects simply contain data, and the business operations are
@@ -39,21 +39,21 @@ each domain object typically has an arbitrarily complex web of
 associations, multivalued attributes, inheritance, and is typically a
 part of some Object-Oriented design patterns.
 
-The main target enterprise applications in
-which the domain objects are persistent, transactionally updated, and
-handled transparently at an infrastructural level (meaning that the
-programmer should be mostly unaware of the persistence/data tier).
+The main targets of this work are enterprise applications in which the
+domain objects are persistent, transactionally updated, and handled
+transparently at an infrastructural level (meaning that the programmer
+should be mostly unaware of the persistence/data tier).
 
 \section{Thesis Statement}
 
-My thesis statement is that it is possible to relieve programmers of
-the effort of developing Long Lived Transactions on top of a
-Persistent STM, by providing infrastructural-level support.
+My thesis statement is that it is possible to simplify the development
+of Long Lived Transactions, by providing infrastructural-level support
+on top of a Persistent STM.
 
-I believe that it is possible to provide a way for programmers to
-transparently support Long Lived Transactions without the need for
-modifications to existing code, and with performance results
-comparable to those of regular transactions.
+I claim that it is possible to provide a way for programmers to
+support transparently Long Lived Transactions without the need for
+significant modifications to existing code, and with performance
+results comparable to those of regular transactions.
 
 \section{Contributions}
 
@@ -66,24 +66,25 @@ The remainder of this document is organized as follows:
 \begin{itemize}
 
 \item {\bf Chapter 2} describes what Long Lived Transactions are, why
-  they are difficult to implement and the requirements for the solution
+  they are difficult to implement and the requirements for the solution.
 
 \item {\bf Chapter 3} presents existing work on Long Lived
-  Transactions, and analyses whey are not well suited to solve the
-  problem at hand
+  Transactions, and discusses why they are not well suited to solve
+  the problem at hand.
 
-\item {\bf Chapter 4} describes the components of the Fenix Framework
-  relevant to this problem
+\item {\bf Chapter 4} describes the components of the Fenix Framework,
+  which is the Framework used to implement the approach that I propose
+  in this work.
 
 \item {\bf Chapter 5} proposes an extension to the Fenix Framework to
-  support Long Lived Transactions
+  support Long Lived Transactions.
 
 \item {\bf Chapter 6} presents some benchmarks for the proposed
-  solution and some optimizations
+  solution and some optimizations.
 
 \item {\bf Chapter 7} describes a few ideas for further enhancement of
-  the proposed solution
+  the proposed solution.
 
-\item {\bf Chapter 8} draws some conclusions from this work
+\item {\bf Chapter 8} draws some conclusions from this work.
 
 \end{itemize}
