@@ -261,27 +261,23 @@ inadmissible for most cases.
 This Chapter shows that implementing Long Lived Transactions using
 current transaction support systems is a rather difficult task that
 promotes poor software engineering practices. As such, the work
-presented in this dissertations aims at providing a solution that:
+presented in this dissertation aims at providing a solution that:
 
 \begin{itemize}
 
-\item Provides infrastructural-level support for Long Lived
-  Transactions
+\item Survives system restarts, ensuring that the intermediate data is
+  always available.
 
-\item Allows existing code to benefit from Long Lived Transactions
-  without any modifications
+\item Provides the same correctness guarantees as regular transactions.
 
-\item Gives programmers a simple API to manage the life-cycle of Long
-  Lived Transactions
-
-\item Allows multiple concurrent users running separate steps of the
-  Long Lived Transaction
+\item Allows multiple users to collaborate concurrently on the
+  execution of a Long Lived Transaction.
 
 \item Does not impose an overhead on the execution of regular
-  transactions
+  transactions.
 
 \item Shows performance results comparable to those of regular
-  transactions
+  transactions.
 
 \end{itemize}
 
