@@ -7,7 +7,17 @@
 %
 
 \usepackage[utf8]{inputenc}
-\usepackage[left=3.5cm,right=3.2cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage[left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}
+
+\usepackage{color}
+\definecolor{javared}{rgb}{0.6,0,0} % for strings
+\definecolor{javagreen}{rgb}{0.25,0.5,0.35} % comments
+\definecolor{javapurple}{rgb}{0.5,0,0.35} % keywords
+ 
+\lstset{language=Java, basicstyle=\ttfamily, frame=single,
+  captionpos=b, tabsize=8, numbers=none, xleftmargin=30pt,
+  xrightmargin=30pt, keywordstyle=\color{javapurple}\bfseries,
+  stringstyle=\color{javared}, commentstyle=\color{javagreen}}
 
 \begin{document}
 
@@ -22,15 +32,22 @@
 %% Abstract
 
 \begin{abstract}
-  Over the past years, Software Transactional Memories have become
-  more and more popular, growing to be something more than simply a
-  research topic. On top of that, the concept has been extended to
-  encompass persistence, so the concept of Persistent Software
-  Transactional Memories (PSTM) was born. In this project, I propose
-  an extension to PSTMs to support Long-Lived Transactions. My thesis
-  is that supporting Long-Lived Transactions should be done at the
-  infrastructural level on Persistent STMs, so I will describe how
-  those systems can be extended to support Long-Lived Transactions.
+
+Over the past years, Software Transactional Memories have become more
+and more popular, growing to be something more than simply a research
+topic. On top of that, the concept has been extended to encompass
+persistence, so the concept of Persistent Software Transactional
+Memories (PSTM) was born. In this dissertation, I propose an extension
+to PSTMs to support Long-Lived Transactions. My thesis is that
+supporting Long-Lived Transactions should be done at the
+infrastructural level on top of a Persistent STM.
+
+I will describe the challenges that make Long Lived Transactions hard
+to implement, and propose a solution to address them. I will show how
+programmers can take advantage of Long Lived Transactions that can
+survive application restarts, require minimal code modifications,
+allow multiple concurrent users and show minimal overhead in relation
+to regular transactions.
 \end{abstract}
 
 %% Intro
@@ -53,7 +70,7 @@ applications, STMs have been extended to collaborate with persistent
 storage systems, giving birth to the concept of {\it Persistent
   Software Transactional Memory} \cite{fernandes2011strict}. Thus,
 several enterprise applications, such as the FenixEdu\footnote{See
-  \texttt{http://www.fenixedu.org}} web application, are now using
+  \url{http://www.fenixedu.org}} web application, are now using
 PSTMs for transactional support.
 
 Long-Lived Transactions (LLTs) were first described in 1981 as ``[..]
@@ -67,7 +84,7 @@ support is either non existing or lackluster.
 In this thesis, I aim at adding support for Long-Lived Transactions in
 applications with Rich Domain Models.  A Rich Domain Model is ``An
 object model of the domain that incorporates both behaviour and
-data.``, as described by \cite{fowler2003patterns}, meaning that
+data.'', as described by \cite{fowler2003patterns}, meaning that
 domain objects hold both their data and the business logic that
 manipulates them, as opposed to an Anemic Domain Model, in which the
 domain objects simply contain data, and the business operations are
@@ -76,25 +93,48 @@ each domain object typically has an arbitrarily complex web of
 associations, multivalued attributes, inheritance, and is typically a
 part of some Object-Oriented design patterns.
 
-The main target enterprise applications in
-which the domain objects are persistent, transactionally updated, and
-handled transparently at an infrastructural level (meaning that the
-programmer should be mostly unaware of the persistence/data tier).
+The main targets of this work are enterprise applications in which the
+domain objects are persistent, transactionally updated, and handled
+transparently at an infrastructural level (meaning that the programmer
+should be mostly unaware of the persistence/data tier).
 
 \subsection{Thesis Statement}
 
-My thesis statement is that it is possible to relieve programmers of
-the effort of developing Long Lived Transactions on top of a
-Persistent STM, by providing infrastructural-level support.
+My thesis statement is that it is possible to simplify the development
+of Long Lived Transactions, by providing infrastructural-level support
+on top of a Persistent STM.
 
-I believe that it is possible to provide a way for programmers to
-transparently support Long Lived Transactions without the need for
-modifications to existing code, and with performance results
-comparable to those of regular transactions.
+I claim that it is possible to provide a way for programmers to
+support transparently Long Lived Transactions without the need for
+significant modifications to existing code, and with performance
+results comparable to those of regular transactions.
 
 \subsection{Contributions}
 
-The main contributions of this document are the 
+The contribution of this dissertation is a solution that will allow
+programmers to develop Long Lived Transactions with minimal effort
+using the Fenix Framework. The major highlights of this contribution
+are:
+
+\begin{itemize}
+
+\item Infrastructural-level support for Long Lived
+  Transactions
+
+\item Add Long Lived Transaction support to existing applications with
+  minimal code modifications
+
+\item A simple API to manage the life-cycle of Long Lived Transactions
+
+\item Support for multiple concurrent users working on a Long Lived
+  Transaction
+
+\item Small overhead on the execution of the Long Lived Transaction's
+  steps
+
+\end{itemize}
+
+%% LLTs
 
 \section{Long-Lived Transactions}
 
@@ -106,9 +146,9 @@ the requirements that must be fulfilled by the implementation.
 \subsection{What are Long-Lived Transactions?}
 \label{sec:what}
 
-Long-Lived Transactions are transactions with a lifetime larger than a
-typical database transaction. To better understand this concept,
-consider the example shown in Figure~\ref{fig:courseDomain},
+Informally, Long-Lived Transactions are transactions with a lifetime
+larger than a typical database transaction. To better understand this
+concept, consider the example shown in Figure~\ref{fig:courseDomain},
 corresponding to a simplified fragment of the domain model for an
 application in the higher education domain.
 
@@ -357,41 +397,36 @@ inadmissible for most cases.
 \subsection{Objectives}
 
 This Chapter shows that implementing Long Lived Transactions using
-current transaction support systems is a rather difficult task which
+current transaction support systems is a rather difficult task that
 promotes poor software engineering practices. As such, the work
-presented in this thesis aims at providing a solution that:
+presented in this dissertation aims at providing a solution that:
 
 \begin{itemize}
 
-\item Provides infrastructural-level support for Long Lived
-  Transactions
+\item Survives system restarts, ensuring that the intermediate data is
+  always available.
 
-\item Allows existing code to benefit from Long Lived Transactions
-  without any modifications
+\item Provides the same correctness guarantees as regular transactions.
 
-\item Gives programmers a simple API to manage the life-cycle of Long
-  Lived Transactions
-
-\item Allows multiple concurrent users running separate steps of the
-  Long Lived Transaction
+\item Allows multiple users to collaborate concurrently on the
+  execution of a Long Lived Transaction.
 
 \item Does not impose an overhead on the execution of regular
-  transactions
+  transactions.
 
 \item Shows performance results comparable to those of regular
-  transactions
+  transactions.
 
 \end{itemize}
 
-
-
+%% Related Work
 
 \section{Related Work}
-\label{sec:related}
+\label{chap:related}
 
-In this section I describe the various topics in which an attempt to
+In this section I describe the various areas in which an attempt to
 solve the problem of Long Lived Transactions has been made, namely
-Database Management Systems, Workflow Systems, and Object/Relational
+Database Management Systems, Workflow Systems, and Object-Relational
 Mapping Systems.
 
 Also, due to its relevance regarding the solution described in section
@@ -403,7 +438,7 @@ transactions.
 \label{sec:rdbms}
 
 Transactions are an age-old notion in the database world. They
-comprise a ``Unit of Work'' performed within a Database Management
+comprise a {\it Unit of Work} performed within a Database Management
 System, and ensure that concurrent access to shared mutable data is
 done in a consistent way.
 
@@ -443,7 +478,7 @@ Attaining full isolation between transactions, while seemingly
 necessary, can oftentimes be a burden to the DBMS, due to the required
 overhead. Thus, isolation is, out of the four ACID properties, the one
 most often relaxed. Isolation is typically implemented using Locks or
-Multiversion concurrency control, which may result in a loss of
+Multiversion Concurrency Control, which may result in a loss of
 concurrency. To cope with that fact, several standard isolation levels
 have been defined.
 
@@ -451,19 +486,18 @@ In the ANSI/ISO SQL standard\cite{melton1992ansi}, four isolation
 levels have been defined (from most to least relaxed):
 
 \begin{itemize}
-\item {\bf Read Uncommitted} In this isolation level, read operations
-  are performed in a non-locking fashion, thus, {\it Dirty reads} may
-  occur. A {\it Dirty read} is defined as a read operation that reads
-  data updated by a live (not yet committed) transaction.
+\item {\bf Read Uncommitted} This is the lowest isolation level
+  provided by any transaction support system. At this level {\it Dirty
+    reads} may occur. A {\it Dirty read} is defined as a read
+  operation that reads data updated by a live (not yet committed)
+  transaction.
 \item {\bf Read Committed} In this level, {\it Dirty reads} cannot
-  happen, guaranteeing that all reads are {\it Consistent reads}
-  (meaning they only read data written by already committed
+  happen (meaning they only read data written by already committed
   transactions). However, multiple reads to the same data location may
   read different values (from transactions that committed in between),
   even within a single transaction.
-\item With {\bf Repeatable Read}, all {\it Consistent reads} within
-  the same transaction read the snapshot established by the first
-  read.
+\item With {\bf Repeatable Read}, all reads within the same
+  transaction read the snapshot established by the first read.
 \item {\bf Serializable} is the {\it highest} isolation level defined
   in SQL. Serializability requires repeatable reads, as well as
   guaranteeing that {\it Phantom reads} do not occur. A {\it Phantom
@@ -490,7 +524,8 @@ database, and the transaction itself will only commit if no updates it
 has made conflict with any concurrent updates since the
 snapshot. Snapshot isolation arose from work on Multiversion
 Concurrency Control, and thus did not make it into the lock-centered
-mindset of the SQL-92 standard.
+mindset of the SQL-92 standard. This gap was heavily criticised in
+\cite{berenson1995critique}.
 
 \subsubsection{Concurrency Control}
 
@@ -499,10 +534,10 @@ execution should not cause application programs to malfunction''
 \cite{reuter1993transaction}. This property was coined in 1993 as the
 first law of Concurrency Control, by Jim Gray. In fact, concurrency
 control mechanisms are what ensure that the ACID properties of
-transactions are kept under an environment with concurrent access to
-shared mutable data. Research on the topic dates back to the
-1970s\cite{rosenkrantz1978system} and 1980s\cite{gray1981transaction},
-and is still a hot topic nowadays.
+transactions are kept, in an environment with concurrent access to
+shared mutable data. Research on the topic dates back to the 1970s
+\cite{rosenkrantz1978system} and 1980s \cite{gray1981transaction}, and
+is still a hot topic nowadays.
 
 There are two main categories of Concurrency Control:
 
@@ -513,18 +548,18 @@ There are two main categories of Concurrency Control:
   Optimistic concurrency control allows for greater concurrency,
   because concurrent operations can proceed without interfering with
   each other. On the other hand, given that integrity is only checked
-  in the end of the transaction, conflicts are not detected until all
+  at the end of the transaction, conflicts are not detected until all
   the work is done and the transaction has to be restarted. It is
   typically implemented by Multiversion Concurrency Control and
-  Timestamp Ordering mechanisms\cite{Bernstein1981}.
+  Timestamp Ordering mechanisms \cite{Bernstein1981}.
 
 \item {\bf Pessimistic} Every data access in the transaction acquires
   a lock before proceeding. During the acquisition process, if an
   integrity violation is detected, the transaction is aborted, rolling
-  back every write and releasing every held lock. Once the transaction
+  back every write and releasing every lock held. Once the transaction
   is finished, it is marked as committed, and all the locks are
-  released. The main method in this category is Two-Phase
-  Locking\cite{Bernstein1981}.
+  released. The main method in this category is Two-Phase Locking
+  \cite{Bernstein1981}.
 
 \end{itemize}
 
@@ -537,7 +572,7 @@ the main reasons why databases do not cope well with long
 transactions, is that the transaction holds a lock for each accessed
 record. In lock-based DBMSs, the frequency of deadlock goes up with
 the square of the concurrency level and the fourth power of the
-transaction size\cite{gray1981transaction}. Thus, several strategies
+transaction size \cite{gray1981transaction}. Thus, several strategies
 have been devised to minimize the probability of deadlocks on
 Long-Lived Transactions.
 
@@ -551,7 +586,7 @@ their locks before commit.
 In \cite{gray1981transaction}, the author proposed a model in which
 only {\it active} transactions (the ones currently updating the
 database) hold locks. {\it Sleeping} transactions (not currently
-updating the database - also known as {\it User think-time}) do not
+updating the database - also known as {\it User Think-Time}) do not
 hold any locks. This means that the isolation property is broken, due
 to the fact that other transactions will be able to see an uncommitted
 value.
@@ -565,16 +600,16 @@ particular, it takes advantage of the knowledge that a transaction no
 longer needs access to a data object that it has locked. Transactions
 can then issue {\it release} operations, indicating that a certain
 piece of data will no longer be accessed. Other transactions will be
-allowed to concurrently access this data, while agreeing to abide by
-certain restrictions, put in place to ensure that all transactions see
-a consistent database state.
+allowed to access this data concurrently, while agreeing to abide by
+certain restrictions that were put in place to ensure that all
+transactions see a consistent database state.
 
 \subsubsection{Transaction Logs}
 
 Another problem with Long-Lived Transactions in DBMSs results from the
-use of a Transaction Log, containing a record of every operation
-performed in the database, so that they can perform crash
-recovery. The problem is that the size of that log is finite, and over
+use of a Transaction Log, which contains a record of every operation
+performed in the database, so that the DBMS can perform crash
+recovery. The problem is that the size of that log is finite and, over
 time, it fills up, thus forcing Long-Lived Transactions to abort, as
 some of their log records will be overwritten by more recent
 transactions.
@@ -589,13 +624,13 @@ log-reclaiming cycle.
 \subsubsection{Sagas}
 \label{sec:sagas}
 
-Garcia-Molina and K. Salem proposed, in their 1987 paper, the notion
-of sagas \cite{garcia1987sagas}. The basic idea of the saga model is
-to allow a transaction to release resources prior to committing. A
-Long-Lived Transaction is a saga, if it can be seen as a sequence of
-sub-transactions that can be interleaved in any way with other
-transactions. Each sub-transaction in the saga guarantees that the
-ACID properties on the database are preserved.
+Garcia-Molina and K. Salem proposed, in their 1987 paper
+\cite{garcia1987sagas}, the notion of sagas. The basic idea of the
+saga model is to allow a transaction to release resources prior to
+committing. A Long-Lived Transaction is a saga if it can be seen as a
+sequence of sub-transactions that can be interleaved in any way with
+other transactions. Each sub-transaction in the saga guarantees that
+the ACID properties on the database are preserved.
 
 Partial executions of the saga are undesirable, so the DBMS is
 responsible for guaranteeing that either all transactions in a saga
@@ -631,7 +666,7 @@ properties are broken when using several system transactions.
 \item {\bf Optimistic Offline Lock} This pattern solves the problem by
   validating that the changes about to be committed by one session (or
   business transaction) do not conflict with the changes of another
-  session. This is achieved by, in each system transaction commit,
+  session. This is achieved by, once the session is being committed,
   validating that the changes about to be committed are consistent,
   making sure that the value previously read by the current session
   was not changed by another session (i.e. obtaining an Optimistic
@@ -672,7 +707,8 @@ appropriate pattern.
 
 Although with the use of these patterns the development of Long-Lived
 Transactions is facilitated, they require the programmer to pollute
-the domain by adding code that should be in an infrastructural level.
+the domain with the addition of code that should be at an
+infrastructural level.
 
 \subsection{Workflow Management Systems}
 
@@ -681,9 +717,9 @@ activities), with special emphasis on the flow paradigm, where each
 step of the process follows the precedent, and ends just before the
 next step can begin.
 
-A Workflow Process typically has a long duration, involves many users
-(in fact, each step is typically executed by a different user), and
-ranges across a variety of heterogeneous systems. Individual
+A Workflow Process typically may have a long duration, involve many
+users (in fact, each step is typically executed by a different user),
+and range across a variety of heterogeneous systems. Individual
 activities range from computer programs and applications to human
 activities such as meetings and decision making.
 
@@ -700,10 +736,10 @@ Processes, using the following concepts:
   data required by the activities.
 \item {\bf Conditions} specify the circumstances in which certain
   events will happen. {\it Transition Conditions} specify whether a
-  certain activity may or may not start. {\it Start Conditions}
-  specify when an activity is actually started, either by all its
-  triggering events (AND) or by just one (OR). {\it Exit Conditions}
-  specify whether an activity has finished successfully.
+  certain activity may or may not become {\it startable}. {\it Start
+    Conditions} specify when an activity is actually started, either
+  by all its triggering events (AND) or by just one (OR). {\it Exit
+    Conditions} specify whether an activity has finished successfully.
 \end{itemize}
 In this model, an activity with no incoming activities is considered a
 {\it Start Activity}. A process is considered finished once all its
@@ -712,17 +748,17 @@ activities are terminated.
 Over the years, many Workflow Modelling Languages have been devised,
 and in fact, it is still a very active area of research. Examples of
 such languages are YAWL \cite{van2005yawl}, AWGL
-\cite{fahringer2005specification}, UEML \cite{vernadat2002ueml} among
+\cite{fahringer2005specification} and UEML \cite{vernadat2002ueml}, among
 many others.
 
 In \cite{sheth1993transactional}, the term {\it Transactional
-  Workflow} was introduced, recognizing the relevance of transactions
+  Workflow} was introduced, recognising the relevance of transactions
 to workflows. Transactional Workflows provide functionality required
 by each workflow process (such as task collaboration), which is
-usually not available in typical DBMSs. This however, does not imply
+usually not available in typical DBMSs. This, however, does not imply
 that workflows are similar to database transactions, nor that they
 support all the ACID properties (namely concurrency control, backward
-recovery and data consistency).
+recovery, and data consistency).
 
 Workflow Management Systems (WFMSs) are the systems that manage
 user-defined Workflow processes for different types of jobs and
@@ -787,37 +823,40 @@ As described in the previous sections, several attempts have been made
 to implement Advanced Transaction Models on top of Workflow Systems,
 as a means of supporting Long-Lived Transactions.
 
-Several other methods have been proposed in the
-literature\cite{798492, alonso1996advanced}. However, such
-implementations are not suitable for the requirements defined in
-Section~\ref{sec:what}, due to the fact that most WFMSs do not provide
-full ACID properties.
+Several other methods have been proposed in the literature (e.g.,
+\cite{alonso1996advanced, 798492}). However, such implementations are
+not suitable for the requirements defined in Section~\ref{sec:what},
+due to the fact that most WFMSs do not provide full ACID properties.
 
-\subsection{Object/Relational Mapping}
+\subsection{Object-Relational Mapping}
 \label{sec:orm}
 
 Due to the increase in popularity of object-oriented programming, a
-large number of Object/Relational Mapping (ORM) tools have arisen over
-the past few years\cite{orm}. These tools range from simple data
+large number of Object-Relational Mapping (ORM) tools have arisen over
+the past few years \cite{orm}. These tools range from simple data
 access layer abstractions (which simply abstract the necessary
 instructions to perform the desired operation), to fully fledged
-tools, which handle every aspect of the Object/Relational Mapping,
+tools that handle every aspect of the Object-Relational Mapping,
 making the underlying database completely transparent to the
 programmer.
 
-Object/Relational Mapping tools are available for a great number of
-languages. For Java, there are two competing persistence standards:
-Java Persistence API (JPA) and Java Data Objects (JDO). Both
-specifications allow a programmer to create domain entities by
-decorating Plain Old Java Objects (POJOs) with annotations, making the
-persistence layer transparent to the programmer. Whereas JDO provides
-a larger number of features than JPA, the latter has seen greater
-adoption by the community, both in terms of usage and support.
-
-The most well-known implementations of the JPA are Hibernate,
-DataNucleus, OpenJPA and EclipseLink. Other ORM tools include
-DatabaseObjects (.NET), NHibernate (Hibernate for .NET), CoreData
-(Objective-C), CodeIgniter (PHP) and Django (Python).
+Object-Relational Mapping tools are available for a great number of
+languages. For Java, there are many competing persistence standards,
+including: Java Persistence
+API\footnote{\texttt{http://jcp.org/en/jsr/detail?id=317}} (JPA), Java
+Data
+Objects\footnote{\texttt{http://www.jcp.org/en/jsr/detail?id=243}}
+(JDO), Spring
+Data\footnote{\texttt{http://projects.spring.io/spring-data/}}, among
+others. Both specifications allow a programmer to create domain
+entities by decorating Plain Old Java Objects (POJOs) with
+annotations, making the persistence layer transparent to the
+programmer. Whereas JDO provides a larger number of features than JPA,
+the latter has seen greater adoption by the community, both in terms
+of usage and support. The most well-known implementations of the JPA
+are Hibernate (\texttt{http://www.hibernate.org}), OpenJPA
+(\texttt{http://openjpa.apache.org}) and EclipseLink
+(\texttt{http://www.eclipse.org/eclipselink/}).
 
 To provide transactional support for domain objects, ORMs typically
 delegate transaction management to the underlying Database (which is
@@ -825,7 +864,7 @@ assumed to provide full ACID support). In fact, as of this writing,
 all the examples shown above operate this way. Thus, Long-Lived
 Transaction support in ORM tools is largely dependent on the
 underlying DBMS, presenting the same challenges as described in
-\ref{sec:rdbms}.
+Section~\ref{sec:rdbms}.
 
 Given the popularity of Java, I will now consider the JPA, and one of
 its most popular implementations, Hibernate, to understand how they
@@ -858,12 +897,12 @@ a session\footnote{A Hibernate session implements the Unit of Work
 the user interaction lasts, potentially executing multiple database
 transactions. However, the programmer is responsible for ensuring the
 atomicity and isolation of the business transaction, by following a
-very strict pattern: all transactions but the last must only read
-data, only the last database transaction can update data. Hibernate
-assists the programmer in verifying that the data read across the
-multiple transactions is consistent, using an object versioning
-mechanism. However, this verification only works if all the data
-required for the application is read within the first database
+very strict pattern: All transactions but the last must only read
+data, and, thus only the last database transaction can update
+data. Hibernate assists the programmer in verifying that the data read
+across the multiple transactions is consistent, using an object
+versioning mechanism. However, this verification only works if all the
+data required for the application is read within the first database
 transaction.
 
 This support is not good enough for several reasons:
@@ -875,13 +914,16 @@ This support is not good enough for several reasons:
   cause the application to run out of memory in very large
   transactions.
 \item The session is not kept persistent. If the application server
-  restarts in the middle of the transaction, all data is lost.
-\item Despite the versioning support, this system only supports the
-  ``Repeatable Read'' isolation level (see
-  \ref{sec:isolation}). Suppose that a database transaction other than
-  the first (T2) reads an object that was changed concurrently (by T3)
-  between the first transaction and T2. T2 will read the value written
-  by T3, and the Long Transaction is not serializable.
+  restarts in the middle of the transaction, all data related to the
+  ongoing Long Conversation is lost.
+\item Despite the versioning support, the business transaction may
+  still suffer from inconsistent reads, as it spans multiple isolated
+  database transactions. Suppose that in a database transaction (T2)
+  other than the first one (T1), the application reads an object for
+  the first time. If the object was concurrently modified by yet
+  another transaction (T3) that occurred between T1 and T2, T2 would
+  see the value written by T3, which would not be consistent. As such,
+  these transactions are not {\it Serializable} (See Section \ref{sec:isolation}).
 \end{itemize}
 
 All of these reasons violate the desired properties described in
@@ -891,18 +933,18 @@ All of these reasons violate the desired properties described in
 \label{sec:stm}
 
 Given that the solution I propose in Section \ref{sec:arch} is built
-upon a Software Transactional Memory (STM), a brief introduction to
-the topic is in order.
+upon a Software Transactional Memory (STM), I provide here a brief
+introduction to the topic.
 
-The original idea behind Transactional Memories (TM) is to provide
-efficient lock-free data structures for highly concurrent systems
-\cite{herlihy1993transactional} using hardware. Its main goal was to
-free programmers from using locks and monitors to manage concurrent
-accesses to shared data. Managing lock granularity and composability
-is a cumbersome and error-prone task, and may lead to unwanted
-situations such as deadlocks. Over the years, the original concept of
-Hardware Transactional Memories has evolved, giving birth to Software
-Transactional Memories.
+The original idea behind Transactional Memories (TM)
+\cite{herlihy1993transactional} is to provide efficient lock-free data
+structures for highly concurrent systems using hardware. Its main goal
+was to free programmers from using locks and monitors to manage
+concurrent accesses to shared data. Managing lock granularity and
+composability is a cumbersome and error-prone task, and may lead to
+unwanted situations such as deadlocks. Over the years, the original
+concept of Hardware Transactional Memories has evolved, giving birth
+to Software Transactional Memories \cite{shavit1997software}.
 
 Software Transactional Memories bring into the realm of programming
 languages, the age-old notion of transactions, well-known in the area
@@ -917,16 +959,18 @@ as those described in \cite{cachopo2006versioned, herlihy2003software,
   marathe2006lowering}.
 
 STMs use transactions to isolate memory operations in atomic Units of
-Work. A transaction typically contains a Read Set and Write Set, used
-to register its read and write operations, respectively. The STM
-provides a series of mutable memory locations that can be read from or
-written to. In many STMs, it is up to the programmer to confine all of
-the application's mutable state to these memory locations, whereas
-some STMs provide fully transactional memory. It is the responsibility
-of the STM to guarantee that concurrent accesses to such memory
-locations are correct according to the specified correctness criteria.
+Work. A transaction typically contains a Read Set and a Write Set,
+which are used to register its read and write operations,
+respectively. The STM provides a series of mutable memory locations
+that can be read from or written to. In many STMs, it is up to the
+programmer to confine all of the application's mutable state to these
+memory locations, whereas some STMs provide fully transactional
+memory. It is the responsibility of the STM to guarantee that
+concurrent accesses to such memory locations are correct according to
+the specified correctness criteria.
 
 \subsubsection{Correctness Criteria}
+\label{sec:opacity}
 
 In Section~\ref{sec:isolation}, I presented the typical isolation
 levels (or correctness criteria) that can be found in DBMS. In
@@ -943,7 +987,7 @@ that unlike Serializability, even {\it non-committed} transactions are
 prevented from accessing inconsistent states. This correctness
 criteria is ensured by many TM systems.
 
-\subsection{Nested Transactions}
+\subsubsection{Nested Transactions}
 
 The best practices in software development encourage programmers to
 modularize their applications and have them abide by well-defined
@@ -953,15 +997,15 @@ locking conventions. Transactions, on the other hand, do not have this
 limitation, allowing for better composability.
 
 In the transaction paradigm, it would then be common for application
-code to make a call to a library which uses transactions to protect
-its shared internal state. In this scenario, the transaction created
-by library would be {\it nested} in the outer (application-``owned'')
+code to make a call to a library that uses transactions to protect its
+shared internal state. In this scenario, the transaction created by
+the library would be {\it nested} in the outer (application-owned)
 transaction. Nested Transactions are an extension to the basic
 transaction structure, supporting multiple levels of transactions:
-transactions that may contain other sub-transactions, forming a
-transaction tree. Nested Transactions have been long used in the
+Transactions that may contain other sub-transactions, forming a
+transaction tree. Nested Transactions have long been used in the
 database world, and many of its concepts have been adapted to
-transactional memories \cite{worah1997transactions}.
+transactional memories.
 
 Consider the kind of monolithic transactions commonly found in
 enterprise applications. In such transactions, the volume of work that
@@ -1018,7 +1062,7 @@ in Section~\ref{sec:what}.
 \label{sec:pstm}
 
 Over the years, Enterprise Application architecture has evolved at a
-very fast pace. However, one aspect has remained constant: they still
+very fast pace. However, one aspect has remained constant: They still
 rely on a relational database to handle both data persistence and
 transactional support. In \cite{fernandes2011strict}, the authors
 argue that such design, while once justified by hardware limitations,
@@ -1055,7 +1099,7 @@ necessary building blocks to support Long-Lived Transactions
 \subsection{Why those solutions are unfit}
 
 Among all the solutions presented above, one common aspect stands out:
-they all require the programmer to deal with Long-Lived Transactions
+They all require the programmer to deal with Long-Lived Transactions
 at the application level, which goes against my claim that support
 should be transparent, and at an infrastructural level.
 
@@ -1071,405 +1115,1910 @@ are not concerned with the ACID properties of transactions, and rely
 heavily on high-level compensatory actions for data consistency.
 
 The solution proposed in Section~\ref{sec:orm} (Hibernate) imposes a
-very strict programming model, that may not be adequate for some
+very strict programming model, which may not be adequate for some
 applications, and does not guarantee that Long-Lived Transactions will
 have the same transactional properties as regular transactions.
 
 None of the proposed solutions fit the requirements specified in
 Section 2, and thus, a new approach is needed.
 
-\section{Solution Architecture}
-\label{sec:arch}
+%% FF
 
-In this section I will describe the architecture of my proposed
-solution, as well as a small introduction to the Fenix Framework
-\cite{fernandes2011strict}, in which it will be implemented.
+\section{Fenix Framework}
+\label{chap:ff}
 
-\subsection{Transactional Contexts}
+``Fenix Framework allows the development of Java-based applications
+that need a {\it transactional and persistent domain
+  model.}''\footnote{\url{http://fenix-framework.github.io}}
 
-The main goal of this solution is to relieve programmers of the burden
-of dealing with Long-Lived Transactions, making the effort needed to
-program one similar to the effort of programming a regular
-transaction. So, what does the single interaction scenario has that
-makes it so easy to program? It has a single transactional context
-that spans the whole operation (provided by the database transaction,
-given that they have the same lifespan). In the second scenario the
-database transaction was shorter than the whole operation, so the
-context was lost in each step.
+This chapter describes in detail the major components of the Fenix
+Framework, which is the Framework used to implement the solution
+proposed throughout this document. Section \ref{sec:dml} describes the
+Domain Modelling Language, used to describe the application's domain
+model. Section \ref{sec:ff-arch} describes the high-level architecture
+of the Framework, briefly describing its major components and their
+interaction. Section \ref{sec:codeGen} describes the process of Code
+Generation. Section \ref{sec:jvstm} presents the Java Versioned STM
+(JVSTM), and its integration with the Fenix Framework. The information
+presented in this chapter is critical to understanding the proposed
+solution, as well as its challenges.
 
-The main concept of the proposed architecture is then the {\bf
-  Transactional Context}. It is represented as a first-class domain
-entity in our rich domain model, making it persistent (unlike the
-context provided by a single database transaction) and
-transactional. With this persistent context, the programmer no longer
-needs to rely on the database to provide the transactional semantics
-of the operation.
+\subsection{Domain Modelling Language}
+\label{sec:dml}
 
-\begin{figure}
-  \centering
-  \begin{tikzpicture}
+The Fenix Framework is aimed at entreprise-class applications with a
+rich domain model in an object-oriented paradigm. Such applications
+typically consist of class hierarchies representing entities with
+relationships among them, forming an interconnected graph. 
 
-    \begin{class}[text width=4cm]{TransactionalContext}{0,0}
-    \end{class}
+The Domain Modelling Language (DML) is a Domain-Specific Language
+designed to represent such domain models, separating the domain's
+structure from its behaviour. The DML is designed with modularity as a
+core concern, allowing for incremental and modular domain definition.
 
-    \begin{class}[text width=1.2cm,minimum height=5em]{Log}{4,-2}
-    \end{class}
+In a DML file, programmers write their domain definition in a
+Java-like language. A class definition consists of the class name, the
+entity slots (either primitive or value types), and the super
+class. Listing \ref{list:class-example} shows how the \texttt{Course}
+and \texttt{Department} classes from Figure \ref{fig:courseDomain}
+could be described in the DML. Note that as arrays are not natively
+supported, a Value Type must be created, describing an array of
+publications. Value Types are described in more detail below.
 
-    \begin{class}[text width=3cm]{DomainObject}{8,0}
-    \end{class}
+\begin{lstlisting}[caption={DML for the \texttt{Course} and 
+  \texttt{Department} classes},
+  label={list:class-example}, float]
+class Course {
+  String name;
+  String objectives;
+  int credits;
+  PublicationList bibliography;
+}
 
-    \draw [umlcd style school] (TransactionalContext) |-
-    node[below]{Read Set} (Log) node[near start, left]{1} node[near
-    end, below]{*};
-
-    \draw [umlcd style school] (TransactionalContext) --
-    node[right]{Write Set} (Log) node[near start, above]{1} node[near
-    end, right]{*};
-
-    \draw [umlcd style school] (DomainObject) -- node[left]{Object}
-    (Log) node[near start, above]{1} node[near end, left]{*};
-
-    \draw [umlcd style school] (DomainObject) |- node[below]{Value}
-    (Log) node[near start, right]{1} node[near end, below]{1};
-
-  \end{tikzpicture}
-
-  \caption{Transactional Context}
-  \label{fig:transactionalContext}
-
-\end{figure}
-
-Figure~\ref{fig:transactionalContext} presents the conceptual model of
-the Transactional Context. Because it is a first-class entity, it can
-be manipulated just like any other domain object. Its purpose is to
-keep all the changes made to the domain objects during the
-transaction, keeping those changes isolated from code executing
-outside this context.
-
-The Transactional Context has two sets of {\bf Log}s representing both
-the read set and the write set of the transaction. A Log contains a
-reference to the original object it refers to, and a
-Transactional-Local copy of the value of the object. In case of a Log
-for a read operation, the value is a snapshot of the object when it
-was first read. In the Log for a write operation, the log will retain
-the value being written.
-
-Any read operation will read the value stored in the Log for that
-particular object (whether it has been modified outside the context or
-not), or create a new Log entry if it is the first time the object is
-being accessed. A write operation will behave similarly, writing the
-new value to the corresponding Log entry. It is important to note that
-there is at most one Log entry per object.
-
-Collaboration from the methods that get/set values of the domain
-objects is required, because those methods must be aware of the
-presence of the transactional context. Depending on whether the method
-performs a read or write operation, it must access the corresponding
-Log of the current context to read/modify the snapshot/copy of the
-object's attributes.
-
-Transactional contexts can be either aborted or committed. Aborting a
-transactional context simply discards all associated Log entries,
-whereas committing atomically merges the Write Set with the
-domain. This operation must obey to the same consistency rules as any
-regular transaction: all objects in both sets must be in a consistent
-state with the objects outside the context.
-
-\subsection{Fenix Framework}
-
-The Fenix Framework \cite{fernandes2011strict} is an implementation of
-the Persistent STM architecture described in Section~\ref{sec:pstm},
-using a Domain-Specific Language - Domain Modelling Language (DML)
-\cite{cachopo2007development} - to describe the application's rich
-domain model. The Framework was initially developed as part of the
-FenixEDU\footnote{FenixEDU - https://fenix-ashes.ist.utl.pt/} web
-application. In 2008, the framework was extracted from the
-application's code base, into a standalone Java framework to develop
-applications that require a transactional and persistent domain model.
-
-In the Fenix Framework, the programmer describes the domain model of
-the application using the DML, and the Framework is responsible for
-generating an empty class for each entity in the domain, as well as
-the infrastructural code needed to transparently handle object
-persistence.
-
-Transactional support is guaranteed by the JVSTM
-\cite{cachopo2006versioned}, a multi-version STM. The STM is based
-upon the concept of versioned boxes, which keep a history of the
-values of the application's shared mutable state. It was designed to
-operate in environments with a high read/write ratio, so, unlike other
-STMs, read-only transactions never conflict with any other concurrent
-transaction (due to the fact that every read will read the version
-that was committed when the transaction started).
-
-The properties (slots and relations) of the Domain Objects are backed
-by the STM, and thus the objects can be transactionally accessed. Once
-a change to a Domain Object's property is made, the change is
-intercepted, and, in commit-time, propagated to the DBMS. For more
-details on the Framework's implementation, see
-\cite{fernandes2011strict}.
-
-As of the writing of this document, the Framework is undergoing a
-major refactoring, in an attempt to separate the Framework's core
-(DML, code generation, programmer API), from the specific Transaction
-Manager and Persistence Backend. This modular architecture allows the
-Framework to work on top of a variety of databases: none (data is not
-kept persistently - useful for Unit testing), Relational Databases,
-NoSQL databases, Key-Value stores, etc. It also allows for modules,
-which can contribute with their own domain, to be plugged into the
-Framework, to extend its functionalities. One such example is a module
-that contains an implementation of persistent B+
-Trees.\footnote{http://en.wikipedia.org/wiki/B+\_tree}
-
-Given the number of possible persistence backends, support for
-Long-Lived Transactions will be implemented as a module depending on
-the JVSTM for transaction management, with no dependencies on any
-persistence backend. This allows for a greater number of developers to
-benefit from Long-Lived Transactions in the Fenix Framework,
-regardless of the backend they are using.
-
-\subsection{Programming Model}
-
-I previously presented the concept of Transactional Context as the
-basic building block for Long-Lived Transactions. However, useful as
-they may be, Transactional Contexts are not business operations.
-
-The main idea is that every business operation that has transactional
-requirements should execute within a transactional context. But due to
-the fact that the operation may have several steps, we must keep track
-of Transactional Context, so it is used in all steps of the operation.
-
-Given that manually keeping track of the context can be cumbersome,
-and should be done transparently, a new concept is introduced: {\bf
-  Transactional Business Operation} (TBO). As shown in
-Figure~\ref{fig:TBO}, a TBO not only is a first-class entity that
-represents a particular business operation, but also holds its
-transactional context. The TBO is then responsible for
-\begin{inparaenum}[\itshape 1\upshape)]
-\item managing the life-cycle of the Transactional Context, and
-\item ensuring that the several steps of the operation execute within
-  the operation's context.
-\end{inparaenum}
-
-\begin{figure}
-  \centering
-  \begin{tikzpicture}
-
-\begin{abstractclass}[text width=6cm]{TransactionalBusinessOperation}{0,0}
-  \operation{end() : void} \operation{abort() : void}
-\end{abstractclass}
-
-\begin{class}[text width=4cm]{TransactionalContext}{7,-0.7}
-\end{class}
-
-\association{TransactionalBusinessOperation}{}{}{TransactionalContext}{1}{}
-
-\end{tikzpicture}
-
-\caption{Transactional Business Operation}
-\label{fig:TBO}
-
-\end{figure}
-
-\subsubsection{Instantiating a new TBO}
-
-Instantiating a TBO will also instantiate its associated transactional
-context. For a method to execute within the context associated to the
-TBO, the programmer must simply annotate the method with the @Step
-annotation. This will ensure that any invocations of the method will
-execute within the context of that
-operation. Listing~\ref{lst:tcMethod} shows the pseudo-code that will
-be injected in the methods to ensure this property. The methods
-getCurrentTC() and setCurrentTC() allow access and modification of the
-current transactional context, which may be stored in a thread-local
-variable.
-
-\lstset{language=Java, frame=single, caption={Code to ensure each step
-    runs within the operation's transactional context},
-  label={lst:tcMethod}}
-\begin{lstlisting}[float]
-TransactionalContext savedContext = getCurrentTC();
-try {
-  setCurrentTC(this.getContext());
-  // invoke step i of this operation
-  if(isLast) {
-    end();
-  }
-} finally {
-  setCurrentTC(savedContext);
+class Department {
+  String name;
 }
 \end{lstlisting}
 
-\subsubsection{Getting the reference to a TBO}
+Relations in DML are named, first-class citizens that represent
+relationships between two classes. Relations are always bi-directional,
+meaning that updating one side of the relation will automatically
+update the other side. Relations can be concealed in one of the sides
+(meaning that it will not be possible to access it), however their
+state is still kept.
 
-Given that the TBO is modelled as a first class domain entity, it can
-be directly associated with its logical owner (e.g. the user who
-created it, the department it belongs to, etc).
+It is possible to define {\it one-to-one}, {\it one-to-many} and {\it
+  many-to-many relationships}, and it is possible to define boundaries
+on the multiplicity of each relation (for example, a
+\texttt{Department} can have between 0 and 30 \texttt{Courses}). Any
+violation to these constraints would put the relation in an
+inconsistent state and is discarded.
 
-Getting a reference to the TBO between its various steps (recall that
-the application may be restarted, losing all session data) may be as
-simple as asking the user to select a pending operation from the list
-of operations associated to that user. The framework is flexible
-enough to allow for a great number of ways to implement this step.
+To-many relations in the Fenix Framework have Set semantics, meaning
+that an object can only be present in a relation once. Also, there are
+no ordering guarantees when accessing the relation.
 
-\subsubsection{Ending the Operation}
-
-There are three ways for a TBO to finish:
-\begin{enumerate}
-\item By invoking the abort() method of the TBO, which will explicitly
-  discard the modifications performed in the context of this
-  operation, delete the transactional context, and lastly, the TBO
-  itself.
-
-\item By invoking the end() method of the TBO, which will attempt to
-  commit the modifications performed by the operation. In case the
-  operation cannot be committed, an exception is thrown. If the commit
-  is successful, both the TBO and its context are deleted.
-
-\item By invoking a method annotated with @Step, with the {\it last}
-  parameter set to {\it true}. This method allows the programmer to
-  define a last step, which will automatically commit the operation
-  once invoked. The semantics of committing in this case is similar to
-  the one provided by calling end(). This is the preferable way of
-  ending a TBO, because, in my opinion, it is the most natural to the
-  programmer.
-\end{enumerate}
-
-\subsection{Revisiting the Example}
-
-In this section I briefly present a modelling of the example
-introduced in section~\ref{sec:what}, using the proposed architecture.
-
-The architecture includes the concept of TBO, so a {\bf
-  CourseCreationOperation} is created. This class extends {\bf
-  TransactionalBusinessOperation}, and is associated with the course
-being created (which is only visible within the context of the
-operation until it commits) and the department for which the course is
-being created.
-
-An implementation of the {\bf CourseCreationOperation} class is
-presented in Listing~\ref{lst:courseTBO}. Each step of the user
-interaction is implemented in a single method, annotated with
-@Step. Because defining the bibliography is the last step of the
-operation, {\it setBibliography()} is annotated with {\it last =
-  true}, meaning that after its invocation, the operation will attempt
-to commit, making the new course visible to every other user in the
-system.
-
-\lstset{language=Java,frame=single,caption={Code for the
-    CourseCreationOperation class}, label={lst:courseTBO}}
-\begin{lstlisting}[float]
-public class CourseCreationOperation 
-       extends TransactionalBusinessOperation {    
-
-  @Step
-  public void makeNewCourse(Department department,
-                            String courseName) {
-    this.setDepartment(department);
-    this.setNewCourse(new Course(department));
-    this.getNewCourse().setCourseName(courseName);
+\begin{lstlisting}[caption={DML for the relation between \texttt{Course}
+    and \texttt{Department}},label={list:relation-example}]
+relation DepartmentHasCourses {
+  Department playsRole department {
+    multiplicity 1..1;
   }
-
-  @Step
-  public void setObjectives(String objectives,
-                            int credits) {
-    this.getNewCourse().setObjectives(objectives);
-    this.getNewCourse().setCredits(credits);
-  }
-
-  @Step(last = true)
-  public void setBibliography
-              (Publication[] bibliography) {
-    this.getNewCourse().setBibliography(bibliography);
+  Course playsRole course {
+    multiplicity *;
   }
 }
 \end{lstlisting}
 
-\subsection{Conflict Handling}
+Listing~\ref{list:relation-example} shows how the relation presented
+in Figure~\ref{fig:courseDomain} could be described in the DML. The
+relation is given a name that describes the relationship between the
+two classes, as well as names to describe the role each class takes in
+the relation. The multiplicity is defined for each of the roles, in
+this case, one \texttt{Department} has zero or more \texttt{Courses},
+and one \texttt{Course} has between one and one (exactly one)
+\texttt{Department}.
 
-Even in short transactions, the probability of conflicts is directly
-proportional to the number of records accessed during the
-transaction. This issue is aggravated when dealing with Long-Lived
-Transactions, because the size of the Read Set and the Write Set tend
-to be larger than with short transactions.
 
-Most of the time, not much work is lost if a short transaction aborts,
-and it is relatively simple to automatically restart the transaction
-without requiring user intervention. With Long-Lived Transactions,
-specially those involving user input, automatic restarting techniques
-cannot be applied.
+From the domain definition, the Fenix Framework generates Java getters
+and setters for the properties and relations. For each class described
+in the DML, two Java classes are created: the domain class, in which
+programmers can include business logic, and a \texttt{Base} class
+(which the domain class extends) containing generated methods to
+access the persistent entities of the object.
 
-Much work can be lost when a long transaction aborts, and it is not
-acceptable to ask the user to input everything again. Conflict
-management is usually split into three areas:
+Consider the DML on
+Listing~\ref{list:class-example}. Listing~\ref{list:courseCode} shows
+the Code generated for the \texttt{Course} class and its corresponding
+base class, as well as the \texttt{Department} base class, containing
+the API generated from the domain definition. For each slot declared
+in the DML a pair of Getter and Setter is generated, providing access
+to the persistent field. For relations there are two types of
+generated methods, depending on the multiplicity of the relation in
+the class. For instance, as one \texttt{Course} has one
+\texttt{Department}, the generated methods are simple getters/setters
+for the \texttt{Department}, as if it were a simple slot. On the other
+side of the relation, as a \texttt{Department} has multiple
+\texttt{Course} objects, the generated methods return a Set containing
+all the elements in the relation. The Framework also generates two
+methods to add and remove an element from the Set.
+
+Whereas in the code shown in this document the body of such methods is
+\texttt{/* Generated */}, the actual code will depend on the backend
+used in runtime. More details about the Code Generation process are
+given in Section~\ref{sec:codeGen}.
+
+\begin{lstlisting}[caption={Generated Course class},
+label={list:courseCode}, float]
+public class Course extends Course_Base {
+  public Course() {
+    super();
+  }
+}
+
+public abstract class Course_Base extends
+                                       AbstractDomainObject {
+
+  public String getName() { /* Generated */ }
+  public void setName(String value) { /* Generated */ }
+
+  public String getObjectives() { /* Generated */ }
+  public void setObjectives(String value) { /* Generated */ }
+
+  (...)
+
+  public Department getDepartment() { /* Generated */ }
+  public void setDepartment(Department value) {/* Generated */}
+
+}
+
+public abstract class Department_Base extends
+                                      AbstractDomainObject {
+
+  public Set<Course> getCourseSet() { /* Generated */ }
+
+  public void addCourse(Course couse) { /* Generated */ }
+
+  public void removeCourse(Course course) { /* Generated */ }
+
+}
+\end{lstlisting}
+
+\subsubsection{Value Types}
+
+In the DML there is a distinction between entities and value
+objects. Whereas an entity is transactional and persistent, a value
+object is immutable and not persistent. Value objects are used as the
+values for slots of DML classes, and must be of well-known types,
+known as Value Types.
+
+A value type contains information regarding the Java Type (such as
+\texttt{java.math.BigDecimal}), an alias (such as
+\texttt{BigDecimal}), and information regarding how the object will be
+externalised/internalized.
+
+There are two categories of Value Types: Builtin (Java Primitives and
+their wrappers, Enums, JodaTime types, JsonElement, and byte arrays)
+and user-defined. User-defined types allow the programmer to use any
+type they wish as a slot, provided the type is immutable (explanation
+as to why is provided ahead) and can be expressed in terms of other
+Value Types.
+
+The Framework knows how to handle Builtin Value Types (i.e. how to
+store/retrieve from persistent support). User-defined, on the other
+hand, require that the programmer specify how the type is
+externalised/internalized. The externalised type must be either a
+Builtin Value Type, or a used-defined type that ultimately is
+externalised to a builtin type.
+
+\subsubsection{JSON}
+\label{sec:json}
+
+JSON (JavaScript Object Notation) is described as being ``[...] a
+lightweight data-interchange format''. JSON is quickly becoming the
+de-facto standard to interchange data across heterogeneous systems,
+replacing XML in many cases.
+
+As such, in the context of this work, the Framework was extended to
+provide native JSON support (by allowing it as a Builtin Value Type),
+using Google's GSON\footnote{\url{http://code.google.com/p/google-gson/}}.
+Using JSON allows the programmer to define arbitrarily complex Value
+Types with little effort, as well as simplifying externalisation code.
+
+The Framework also provides support to transform any Value Type
+to/from JSON, meaning that a JsonElement slot is enough to keep any
+value the Fenix Framework is able to handle. As shall be presented in
+Chapter~\ref{chap:solution}, this proves to be a crucial feature.
+
+\subsection{Architecture}
+\label{sec:ff-arch}
+
+The first versions of the Fenix Framework (as presented in
+\cite{fernandes2011strict}) had a rather monolithic
+architecture. Transactional support was provided by the JVSTM (see
+Section \ref{sec:jvstm}), and persistence was implemented on top of
+MySQL, leaving the programmer with no other choice of technology.
+
+With the second major version of the Framework (released earlier this
+year), a great architectural shift has occurred. There is now a clear
+separation between the Framework's public API and the
+transactional/persistence backends, allowing for a ``write once, run
+everywhere'' paradigm. The programmer simply writes his application
+against a public API and is able to run it on multiple backends.
+
+This way, not only are applications portable across several
+technologies (MySQL, Neo4j, Hibernate, etc), but also testing support is
+greatly enhanced, as there is no need to mock the persistence API, as
+tests can be run using an in-memory backend.
+
+Figure~\ref{fig:ff-arch} shows the major modules that constitute the Fenix
+Framework.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.8\linewidth]{ff-arch}
+\caption{Fenix Framework's Layered Architecture}
+\label{fig:ff-arch}
+\end{figure}
+
+The DML Compiler module contains the parser responsible for reading
+DML files and creating an in-memory description of the Domain Model,
+as well as all the necessary classes to represent it. It also contains
+the base \texttt{DomainObject} interface, which all objects of the Domain
+Model implement. Also present in this module are the base Code
+Generators used to create the Base classes for all domain
+objects.
+
+The core of the Framework is in the \texttt{Core API} module. Transaction
+management APIs, configuration, entry points, backend interfaces, are
+all defined in this module.
+
+Many backend-independent modules are provided with the Fenix Framework
+bundle. These include persistent Abstract Data Types (B+Trees, Linked
+Lists, etc), support for Consistency
+Predicates \cite{JoaoCoutinhoNeves2011}, statistics collection tools,
+indexing and transaction introspection. These modules are used
+internally by the various backends, but can (and in most cases should)
+also be used by the programmers.
+
+Backends provide the concrete implementations of transactional and
+persistence support, and are required for applications to work.
+
+\subsubsection{Public API}
+
+One of the major advantages of the Fenix Framework is that
+applications built on top of it are independent of the underlying
+persistence and transactional backend. However, to guarantee this
+property, the modules that form such applications must be compiled
+against the Public API of the Framework.
+
+The public API is split in two major components:
+
+\begin{itemize}
+\item {\bf DML Compiler} Allows applications to have runtime access to
+  the structure of the domain and allows registering relation
+  listeners that will be invoked each time a relation is
+  modified. This module also defines the API that is generated based
+  on the DML, which must be supported by all backends.
+
+\item {\bf Core API} Provides the entry point for the domain's object
+graph through the \texttt{DomainRoot} class, the mechanism to retrieve a
+Domain Object from its unique identifier, transaction APIs that can be
+used to either mark a piece of code as transactional (@Atomic
+annotation) or to manually manage the lifecycle of transactions, and
+utilities to configure the Framework.
+\end{itemize}
+
+With this separation, the classpath of the application modules is not
+polluted with implementation details, allowing for a faster
+development and test cycle.
+
+\subsubsection{Backends}
+
+Backends are a crucial part of the Fenix Framework. They provide
+concrete implementations of the transactional and persistence
+support. Application modules should not depend directly on the
+backends, as their API is private and as such subject to change even
+among minor versions, and having a dependency on a specific backend
+means that portability must be sacrificed.
+
+The fact that backends have a clear separation from the Public API
+allows for a much faster evolution of the backend's
+implementation. Major internal changes can be done without affecting
+the end-users directly, even in a revision release, whereas changes to
+the public API require either a major or minor release.
+
+\subsection{Code Generation}
+\label{sec:codeGen}
+
+As previously described, access to persistent fields of domain objects
+is done using generated methods in Base classes.
+
+Code generation is closely tied to the specific backends, as it is
+typically used to support the process of persisting an object to a
+database. An example of an operation performed in generated code is
+binding a \texttt{PreparedStatement} with the values of the object's
+slots, or externalizing the object to JSON.
+
+There are two major components in code generation:
 
 \begin{itemize}
 
-\item {\bf Prevention} Avoiding situations that would cause a
-  conflict. This could be accomplished by restricting the actions
-  available to long business operations and warning the users of
-  potentially conflicting actions (before they are executed).
+\item The default code generator, from which every other generator
+  inherits, defines the public generated API for domain classes. Its
+  major use-case is to compile backend agnostic application modules
+  that only need base classes because of their API (modules aren't
+  bundled with base classes, those are generated on-demand on
+  depending modules or applications).
 
-\item {\bf Detection} Awareness that the current transaction's state
-  is inconsistent and cannot be committed. In short transactions, it
-  is usually simple to restart the transaction once a conflict is
-  detected. In long transactions, not being able to commit can entail
-  a big penalty. It is important to detect the reason preventing the
-  transaction from committing, pinpointing the cause of the problem.
+\item Backend-provided code generators. These generators extend the
+  base ones, thus providing the same API, using backend-specific
+  artifacts to fullfil the API. Backends can also use code generators
+  to optimise runtime performance, by injecting in generated code
+  values that otherwise would have to be computed at runtime.
+\end{itemize}
 
-\item {\bf Recovery} Recovering from a conflict after its
-  detection. With detailed information regarding the cause of the
-  conflict, recovery can be attempted by asking the user to
-  re-introduce only the data that caused the conflict, hopefully
-  solving it.
+Whereas this Code Generation architecture allows for great
+optimizations (it allows backends to perform complex operations
+without resorting to reflection), it comes with a tradeoff: Forcing
+the domain classes to inherit from Base classes hinders the
+readability of the code (as the user is required to either check the
+DML or the base class to find out the super class), makes it
+impossible to invoke constructors of the super class (as the Base
+class only generates the no-arg constructor), does not allow the
+programmer to choose the visibility of the generated methods (as they
+are always generated public) among other issues.
+
+The Code Generation step also provides a mechanism to transfer
+compile-time information to the runtime. Information such as the App
+Name (which is used at runtime to generate the graph of DML
+dependencies), the name of the Backend used to compile the final
+application (to allow for automatic initialization), as well as pass
+user-defined parameters to runtime.
+
+\subsection{JVSTM}
+\label{sec:jvstm}
+
+The Java Versioned Software Transactional Memory (JVSTM)
+\cite{cachopo2006versioned} is a pure-Java implementation of a
+Software Transactional Memory (see Section~\ref{sec:stm}).
+
+The JVSTM uses the concept of Versioned Boxes (VBoxes) to make a
+memory location transactional, keeping the history of values for that
+position, one for each version of the box. Reads and writes to VBoxes
+are tracked by the JVSTM in a per-transaction basis.
+
+Each transaction begins at a given moment, acquiring the version
+number at that moment. The version number is used during the
+transaction to ensure that all reads get the correct value at the time
+of the transaction's start, thus providing Opacity guarantees
+\cite{guerraoui2008correctness}. This allows for conflict-free
+read-only transactions, as concurrent transactions writing to the read
+boxes will write a new version instead of overwriting its previous
+value.
+
+\subsubsection{Integration}
+
+The JVSTM is integrated with the Fenix Framework, as one of the
+multiple available backends. This document focuses on the backend
+named \texttt{jvstm-common}. This backend uses the JVSTM for the
+transactional support, while abstracting the persistence
+details. Despite being meant to be extended, \texttt{jvstm-common}
+provides an in-memory implementation of the persistence API.
+
+The implementation of the solution proposed in
+Chapter~\ref{chap:solution} rests on top of this abstract backend,
+meaning that it will work on top of any persistent support, as long as
+the JVSTM is used.
+
+In this backend, Base classes use VBoxes to store the value objects
+transactionally, thus taking advantage of the JVSTM. The generated
+getters and setters are backed by \texttt{VBox.get()} and
+\texttt{VBox.set()}, and can be invoked only from within a
+transaction.
+
+\subsubsection{VBoxes}
+
+A plain JVSTM VBox is simply a wrapper to a Linked-List of pairs
+[Version, Value], containing the history of values for that
+box, as seen in Figure \ref{fig:vbox}.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.5\linewidth]{vbox-list}
+\caption{VBox Structure}
+\label{fig:vbox}
+\end{figure}
+
+A Fenix Framework VBox however, also contains a back-pointer to its
+owner, as well as the name of the slot it represents. This allows for
+the persistence support to know where to store the value of the Box.
+
+Those specialised VBoxes can have their previous values
+Garbage-Collected and reloaded from persistent support on-demand.
+
+\subsubsection{VBoxes for slots}
+
+There are two layouts for Domain Object's slots: {\it (1)} Using one
+VBox to keep the entire state of the object (One-Box), and {\it (2)}
+Using one VBox per slot (Multi-Box).
+
+The first layout suffers from a higher number of conflicts, as reading
+one slot will conflict with writing another slot on the same object
+(as they are mapped to the same VBox), however the memory usage is
+much lower, as each VBox has a cost for its underlying data
+structures. This aspect is critical in applications with a dense
+domain model, with many objects and many slots.
+
+Smaller applications can use the Multi-Box layout to greatly reduce
+conflicts. In this layout, each domain slot is given its own VBox.
+
+In both layouts, a specialised VBox called \texttt{PrimitiveBox} is
+used to store either the object's state or the slot's value. There is
+no added behaviour or data in a PrimitiveBox, however persistence
+support uses this information to determine whether to reload a box
+containing the state (or part of it) of an object or a box for a relation.
+
+\subsubsection{VBoxes for relations}
+
+In the One-Box layout, to-one relations are kept inside the object's
+state, and as such require no special handling. 
+
+On the other hand, for a Multi-Box layout, the reference to the
+related object is kept in a \texttt{ReferenceBox}. Just like a
+\texttt{PrimitiveBox}, it contains no extra behaviour or data, and
+serves only as a marker for persistence support to know it has to load
+an object reference.
+
+To-many relations however, are handled in a very different manner. The
+preferred approach is to use a B+Tree \cite{elmasri2009fundamentals}
+to store the objects on the to-many side of the relation. For each
+to-many relation, a {\it ReferenceBox} is generated, containing a
+reference to the domain object representing the B+Tree.
+
+The Fenix Framework provides an implementation of persistent B+Trees
+that does not use to-many relations (by design, so it can be used to
+implement them). In this implementation, each node of the tree is a
+domain object containing only a reference to its parent and its
+sibling. Inner nodes use an immutable TreeMap wrapper to keep indexed
+references to the nodes they point to. Leaf nodes follow the same
+strategy, keeping the mapping between keys and the objects they point
+to (in reality they can be used to point at anything, however for this
+document we are only interested in B+Trees containing domain objects).
+
+As a B+Tree is generically a key-value map, its usage can be twofold:
+provide a simple way to implement to-many relations and provide
+support for relations indexed by a slot of the related
+object. Consider the previously presented {\it Course} example. In
+this model, one Course has many Students. As such, there is a B+Tree
+slot in the Course Base class, which contain the references to all the
+students enrolled in that particular course.
+
+In the usual scenario, the B+Tree contains a mapping between OIDs and
+the respective target object (which is rather useless, as the Fenix
+Framework provides a lightweight API to read an object by its OID).
+Now consider a scenario where the set of students must be indexed by
+student name. The B+Tree will now contain a mapping between the
+student's name and the target student, allowing for indexed lookups of
+students by name.
+
+%% Solution
+
+\section{Solution}
+\label{chap:solution}
+
+With a proper understanding of the Fenix Framework, this chapter
+describes the solution proposed to simplify the development of Long
+Lived Transactions. Section~\ref{sec:challenges} describes the
+challenges faced when implementing Long Lived
+Transactions. Section~\ref{sec:arch} describes the architecture of the
+proposed solution, with the rationales for each design
+decision. Section~\ref{sec:impl} describes how the proposed
+architecture was implemented on top of the Fenix Framework using the
+JVSTM. Finally, Section~\ref{sec:validation} shows that both the
+architecture and implementation fullfil all the requirements, and
+attempts to measure the effort required to use the implementation.
+
+\subsection{Challenges}
+\label{sec:challenges}
+
+In Section~\ref{sec:difficult} I presented several approaches for
+implementing Long Lived Transactions using the already existing
+mechanisms. Two of those approaches required the programmer to rework
+his code to support LLTs (keeping a parallel representation of the
+domain and changing the domain model), which does not fit in the
+requirements for this solution.
+
+The only approach that did not require the programmer to modify his
+domain code was keeping the database transaction open during the
+multiple steps of the LLT. The reason this approach was not desirable
+is that most DBMSs are not prepared to handle transactions open for
+long periods of time.
+
+A naive approach when implementing LLTs on top of the JVSTM could
+simply be running each step of the LLT on the context of a regular
+transaction, suspending it in between steps, only committing it in the
+end of the LLT. This approach presents several similarities with the
+approach of using a single database transaction, including some of the
+limitations:
+
+\begin{itemize}
+
+\item As the data is kept in transient memory, not only would LLTs not
+  survive system restarts, but the memory usage of the system would
+  also increase rather quickly.
+
+\item As JVSTM transactions are not designed to be shared across
+  multiple threads, supporting multiple concurrent users would
+  require the usage of Parallel Nesting
+  \cite{NunoMiguelLourencoDiegues2012}.
 
 \end{itemize}
 
-Performing conflict management in a domain-dependent manner can
-present itself as a major challenge. However, it may be necessary when
-dealing with Long-Lived Transactions.
+Despite this limitation, this approach is a step in the right
+direction. With a few modifications, it is possible to overcome the
+limitations and obtain a fully functional solution. To do so, there
+are some challenges that need to be overcome:
 
-Implementing a mechanism to provide domain-dependent conflict
-management requires a big effort, and is out of the scope of this
-work. However, given the time, I shall look for ways to aid
-programmers with this issue.
+\begin{itemize}
 
-\section{Evaluation}
+\item How is information persistently carried between the various
+  steps of the transaction?
 
-To evaluate this work, I will measure the effort required to implement
-a long business transaction, comparing the currently available tools
-against the implementation of my proposed architecture.
+\item How to use a unique representation for every possible value any
+  domain slot can take?
 
-I will also measure the effort required to refactor existing code, to
-use this new solution, by selecting a functionality in the FenixEDU
-web application, and refactoring it.
+\item How to ensure that multiple users can concurrently access a Long
+  Lived Transaction?
 
-An implementation of the example presented in Section~\ref{sec:what}
-will be devised, both using the current and the new architecture. With
-those two implementations, I shall measure the performance hit of my
-new solution.
+\end{itemize}
+
+Throughout the rest of this chapter I will present solutions for these
+challenges and create a solution that fulfils all the requirements.
+
+\subsection{Architecture}
+\label{sec:arch}
+
+The main goal of this work is to relieve programmers of the burden of
+dealing with Long Lived Transactions, making the effort needed to
+program an LLT similar to the effort of programming a regular
+transaction.
+
+So, what does the single interaction scenario has that makes it so
+easy to program? It has a single transactional context that spans the
+whole operation (provided by the STM transaction). In the multiple
+interaction scenario the system transaction was shorter than the
+business transaction, so in each step the context was lost.
+
+Looking at the information that is kept during the lifespan of a
+regular transaction, we can identify three major pieces:
+
+\begin{itemize}
+\item The version in which the transaction is running. This version
+  number corresponds to the logical point in time at which the
+  transaction started.
+\item A list of all the items written throughout the transaction (and
+  the respective written values). This is the critical piece, as it
+  contains the updated data that will be written to the global state
+  of the application on transaction's commit.
+\item A list of all elements read throughout the transaction. This
+  piece of information is critical to ensure the correctness of the
+  operation, as the outcome of the transaction may depend on the
+  values of all the read data.
+\end{itemize}
+
+These pieces are crucial to ensure the correct operation of an
+STM-based transactional system. STM libraries provide them for regular
+(short-lived) transactions. The solution presented below aims to
+provide them for Long Lived Transactions, using the short-lived
+transactions as its building blocks.
+
+Short lived transactions keep all the necessary information in
+transient transaction-local storage (typically in memory), until the
+time they commit, merging the write set with the global state of the
+application. With Long Lived Transactions, merging this write set in
+each step is not possible.
+
+Recall the Course creation example. Consider that in the first step a
+Course is created with only a name and the department it is associated
+to. Merging the Write Set for this step with the global state would
+leave the system in an inconsistent state in which the departement is
+associated to an unfinished course, as this transitory state would be
+visible to the outside world.
+
+There needs to be a way to persistently store the Write Set of each
+step, outside the global state of the application so that the changes
+are not visible to the outside world. Only upon committing the Long
+Lived Transaction these changes would be merged to the global state,
+meaning that the writes performed by each step are effectively delayed
+until the end of the transaction. Note that for correctness purposes,
+the Read Set of the transaction must also be collected, so that at
+commit time both Read Set and Write Set can be replicated, taking
+advantage of the already existing JVSTM support.
+
+As the main feature of the Fenix Framework is providing mechanisms to
+manipulate transactionally and to persist Domain Objects, perhaps it
+would be a good approach to use regular Domain Objects to store the
+required information.
+
+\subsubsection{Data Structures}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.8\linewidth]{tx-context}
+\caption{Transactional Context's Domain Model}
+\label{fig:transactionalContext}
+\end{figure}
+
+Consider the domain model presented in
+Figure~\ref{fig:transactionalContext} that represents the reification
+of the necessary data necessary for a transaction. A
+\texttt{TransactionalContext} is the centerpiece of the domain, it
+represents a Long Lived Transaction, holding together the entire state
+of the transaction. By keeping the state of the LLT in regular domain
+objects, we are ensuring that it is stored persistently (or at least
+as persistent as the rest of the application) as well as
+transactionally safe. Updates to the context are performed using a
+regular transaction, allowing for multiple users to concurrently run
+LLT steps (which will simply perform reads and writes to the context).
+
+In this model, the \texttt{TransactionalContext} keeps the state of
+the transaction (whether it is started, committed, aborted or in
+conflict) and the version marker (corresponding to the ``current''
+version when the first step of the transaction executed).
+
+A \texttt{TransactionalContext} has two associated sets of
+\texttt{LogEntries}, one for the Read Set and one for the Write Set. A
+\texttt{LogEntry} represents one read or written slot throughout the
+transaction, by keeping a reference to the object, slot name, as well
+as the value that was written (note that the value is only kept if the
+LogEntry belongs to the Write Set).
+
+Once again recall the Course creation example, in which a Long Lived
+Transaction is used to perform a multi-step creation of a new Course
+for a given Department. To perform such operation, a new
+\texttt{TransactionalContext} is created, initially empty
+(Figure~\ref{fig:course-logEntries}a), with an undefined version.
+
+\begin{figure}
+\centering
+\includegraphics[width=1\linewidth]{log-entries}
+\caption{Transactional Context instances in a Course creation transaction}
+\label{fig:course-logEntries}
+\end{figure}
+
+In the first step, a new Course named ``Software Engineering'' is
+created, and it is added to the CS department. As this step performed
+a single read and two writes, three \texttt{LogEntries} are created:
+{\it (1)} In the Read Set representing the reading of the department's
+Course list, {\it (2)} In the Write Set representing the updaded
+Course list for the CS department, {\it (3)} and in the Write Set
+representing the name slot for the newly created course.  Note that as
+this step was the first, the version of the
+\texttt{TransactionalContext} is now defined as the ``current''
+version. Figure~\ref{fig:course-logEntries}b shows the contents of the
+context after the execution of the first step.
+
+\subsubsection{Transaction Isolation}
+
+Having the necessary data structures laid out is crucial for a proper
+implementation of Long Lived Transactions, but it is just the
+beginning. Whereas these structures are agnostic to the specific
+backend, the backend must be able to recognise when a transaction is
+executing within the context of a Long Lived Transaction, so that
+reads and writes are isolated from the global state of the application
+(otherwise the whole world could see the intermediate values).
+
+In the Fenix Framework, transactions are bound to a specific thread,
+allowing for multi-threaded applications to execute multiple
+concurrent transactions, each one in its own thread. As such, to run a
+transaction in the context of a Long Lived Transaction, one must first
+bind the context to the current thread. This way, when beginning a new
+Transaction, the backend will check for the presence of a
+\texttt{TransactionalContext}, to determine whether to start a regular
+transaction or a LLT step. Listing~\ref{list:longTxBind} shows the
+programmer API for binding a \texttt{TransactionalContext} to a given
+thread. This way, the programmer is free to run any piece of
+transactional code as a step of a Long Lived Transaction.
+
+\begin{lstlisting}[caption={Example of TransactionalContext usage},
+  label={list:longTxBind},float]
+public void runStep(TransactionalContext context) {
+  // IllegalStateException if already within a context
+  LongTransaction.setContextForThread(context);
+  try {
+    transactionalOperation();
+  } finally {
+    LongTransaction.removeContextFromThread();
+  }
+}
+
+@Atomic
+public void transactionalOperation() {
+  (...)
+}
+\end{lstlisting}
+
+Transactions occurring within the context of a Long Lived Transaction
+must be aware of that fact, as this means that the semantics of domain
+getters and setters is changed.
+
+When reading the value of a slot within a
+\texttt{TransactionalContext}, it is the responsibility of the backend
+to check whether the slot is in the Write Set of transaction (so that
+written values can be later read) and if it is not, read the value of
+the slot in the correct version (the version recorded in the
+context). Slot reads are recorded as a \texttt{LogEntry} in the Read
+Set.
+
+When writing the value of a slot, the written value is stored as a
+\texttt{LogEntry} in the Write Set, so that it can later be retrieved
+by read operations and used to update the state of other domain
+objects when committing the transaction.
+
+Backends will typically intercept reads and writes to the domain, and
+use their regular methods for accessing the underlying transactional
+context. As such, in the end of a step, only slots belonging to the
+\texttt{TransactionalContext} and its \texttt{LogEntries} are written
+to persistent support.
+
+\subsubsection{Committing the Long Lived Transaction}
+
+So far we have seen what data is stored in a
+\texttt{TransactionalContext} and how it is populated. Now we shall
+look at what happens when the Long Lived Transaction finishes, and the
+context is committed.
+
+Just like in a regular transaction, a Long Lived Transaction must be
+atomic and consistent, meaning that its effects must appear to have
+occurred at a single well-defined point in time. To accomplish this,
+all elements of the Read Set must be validated to be in the same
+version, thus ensuring that all writes were performed based on fresh
+data (more details on how this is accomplished in
+Section~\ref{sec:jvstm-commit}). If the validation step is successful,
+all the written data must be merged into the global state of the
+application, by iterating over all \texttt{LogEntries} in the Write
+Set, and writing the recorded value to the correct slot.
+
+To ensure the correctness of the commit operation, both validation and
+merge are performed within a regular transaction, in a
+backend-specific manner (as only the backend knows how to write to an
+arbitrary slot and to check if the read value is still valid). Any
+conflicts on this operation, such as multiple concurrent commit
+operations, or writes to validated slots will cause the commit
+transaction itself to abort and restart.
+
+Programmers can also manually rollback the Long Lived Transaction. In
+this situation, all the information stored in the corresponding
+\texttt{TransactionalContext} is deleted. As the Reads and Writes
+performed by the transaction are stored exclusively in the context, no
+further action is required.
+
+\subsection{Implementation}
+\label{sec:impl}
+
+
+The previous section described a solution to ease the development of
+Long Lived Transaction. This section describes how that solution was
+implemented on the Fenix Framework, using the JVSTM as the
+transactional support provider.
+
+The implementation is divided in two parts:
+
+\begin{enumerate}
+
+\item The {\bf long-tx-api} module, which contains the domain
+  specification of the \texttt{TransactionalContext} and
+  \texttt{LogEntries}, as well as the API available to the programmer.
+
+\item A {\bf JVSTM-based} implementation of Long Lived Transactions.
+\end{enumerate}
+
+The goal of this division is twofold: to allow alternative
+implementations on top of non-JVSTM backends, and to hide internal
+implementation details from the programmer (who should not depend on
+backend code).
+
+\subsubsection{API}
+
+The {\bf long-tx-api} module is pretty straightforward. It contains
+the domain definition described in
+Figure~\ref{fig:transactionalContext}. The domain is public API, so
+that Long Lived Transactions can be associated with any
+programmer-defined object (e.g., to a user, to a group, a process
+etc). This design decision allows for a simple solution, as
+cross-cutting concerns such as security and sharing are abstract, and
+also gives the programmer more flexibility.
+
+It is the programmer's responsibility to instantiate a new
+TransactionalContext every time a new Long Lived Transaction is to be
+started. With the context in hand, the programmer simply needs to bind
+it to the thread running the step. Listing~\ref{list:longTxBind} shows
+the code necessary to bind the context to a thread.
+
+Using only this simple API, the programmer is able to easily code
+features that benefit from Long Lived Transactions with little effort.
+
+\subsubsection{JVSTM implementation}
+
+In the proposed architecture, several features are required to be
+provided by the backend:
+
+\begin{itemize}
+
+\item {\bf Context Detection} The backend detects the presence of a
+  \texttt{TransactionalContext} in the current thread, and begins a
+  context-aware transaction.
+
+\item {\bf Intercepting reads/writes} Ensure that reads and writes
+  performed in LLT steps are not performed to the global state of the
+  application.
+
+\item {\bf Context commit} Once the Long Lived Transaction is
+  finished, merge its changes with the global state.
+
+\end{itemize}
+
+\subsubsection{Context Detection}
+
+When beginning a transaction in \texttt{jvstm-common}, the backend
+checks for the presence of a \texttt{Transactional Context} bound to
+the current thread, and if one is present, the following happens:
+
+\begin{enumerate}
+
+\item A regular transaction is started. This transaction will be used
+  to access the context and previous versions of VBoxes (for when a
+  read is made and the context cannot provide a value).
+
+\item A nested \texttt{LLTStepTransaction} is started. This will be the
+  active transaction, and route reads and writes to the corresponding
+  \texttt{TransactionalContext}.
+
+\item In case this is the first step of the LLT, it is necessary to
+  define its version. To ensure that every other step of the LLT has
+  the same view of the world as this one, mark the LLT's version as
+  the version of the current transaction.
+
+\end{enumerate}
+
+This algorithm is shown in Listing~\ref{list:stepStart}.
+
+\begin{lstlisting}[caption={Beginning a new Long Lived Transaction
+    step}, label={list:stepStart}, float]
+TransactionalContext context = 
+    LongTransactionSupport.getContextForThread();
+if (context != null) {
+  // Begin a new Top Level Write-Transaction
+  JvstmInFenixTransaction underlying =
+      Transaction.begin(false);
+
+  LLTStepTransaction longTxStep = 
+      new LLTStepTransaction (context, underlying);
+
+  longTxStep.start();
+}
+
+(...)
+
+// In the beginning of the new transaction
+if (context.getVersion() == null) {
+  context.setVersion(Transaction.current().getNumber());
+}
+\end{lstlisting}
+
+The main reason to use a Nested transaction is to allow portability
+across concrete persistence implementations, as the
+\texttt{LLTStepTransaction} will be agnostic to the specific
+underlying transaction (provided it fulfils the required API). A
+\texttt{LLTStepTransaction} holds a reference to the
+\texttt{TransactionalContext} backing it, so that it can be used to
+aid in reading and writing.
+
+\subsubsection{Intercepting Reads and Writes}
+
+As in the JVSTM backend each domain object slot is backed by a VBox,
+intercepting reads and writes to slots can be easily done. The
+implementation of the get/set methods in a VBox simply delegates the
+read/write to the current transaction.
+
+As such, the \texttt{LLTStepTransaction} was introduced. Its goal is
+to intercept the reading and writing of boxes, ensuring that such
+reads and writes are both isolated from the outside world and
+collected into the \texttt{TransactionalContext}.
+
+Just like in regular transactions, writing a VBox will simply keep the
+written value in the transaction's Write Set. This Write Set will be
+processed when committing the step. 
+
+\begin{lstlisting}[caption={Reading a VBox within a
+    LLTStepTransaction}, label={list:boxRead}, float]
+// In the LLTStepTransaction class
+public <T> T getBoxValue(VBox<T> vbox) {
+  // Check the local Write Set
+  T result = getLocalValue(vbox);
+  if (result == null) {
+    if (vbox.getOwnerObject().
+          getClass().isAnnotationPresent(NoLogEntries.class)) {
+      // For classes annotated with @NoLogEntries
+      // check the parent transaction in the current version
+      return parent.getBoxValue(vbox);
+    }
+
+    // Check the TransactionalContext
+    result = lookupBoxValueInContext(vbox);
+    if (result == null) {
+      // Read from the parent
+      result = parent.getPreviousBoxValue(vbox, version);
+      bodiesRead.put(vbox, null);
+    }
+  }
+  return result == NULL_VALUE ? null : result;
+}
+
+private <T> T lookupBoxValueInContext(VBox<T> vbox) {
+  JVSTMDomainObject owner = vbox.getOwnerObject();
+  String slotName = vbox.getSlotName();
+
+  LogEntry writeSetEntry = context.getWriteSet();
+
+  while (writeSetEntry != null) {
+    if (writeSetEntry.getDomainObject().equals(owner) &&
+        writeSetEntry.getSlotName().equals(slotName)) {
+      String contents = writeSetEntry.getContents();
+      return owner.getValueFromJSON(slotName, contents);
+    }
+    writeSetEntry = writeSetEntry.getNextEntry();
+  }
+  return null;
+}
+
+
+\end{lstlisting}
+
+The algoritm for reading a VBox within a \texttt{LLTStepTransaction} is shown in
+Listing~\ref{list:boxRead}. It consists of the following steps:
+
+\begin{enumerate}
+
+\item If the VBox was previously written in this step, return the
+  written value. This is accomplished by looking up the value in the
+  step's own transient Write Set.
+
+\item In case the VBox being read is owned by either a
+  \texttt{TransactionalContext} or a \texttt{LogEntry}, the read is
+  delegated to the parent transaction in the current version (so that
+  always the latest version is read). Such reads will typically be
+  nested within reads of other boxes, when the context's Write Set is
+  being searched.
+
+\item If the VBox was written in a previous step of the Long Lived
+  Transaction, return the previously written value, obtained from a
+  \texttt{LogEntry} in the Write Set of the LLT.
+
+\item Else, delegate the read to the underlying transaction, in the
+  same version as the context, and add the VBox to the current
+  transaction's Read Set.
+
+\end{enumerate}
+
+As domain slots can hold virtually any value, it is not possible to
+store the value directly in a single statically typed Fenix Framework
+slot. To solve this issue, the values are stored in JSON format, in a
+single slot on the \texttt{LogEntry} class. Recall from
+Section~\ref{sec:json} that the Fenix Framework provides native
+support for converting any ValueType to/from JSON. With a little help
+from the backend-specific Code Generation step, domain objects can now
+be asked to convert the value of a given slot to/from JSON, making it
+possible for Long Lived Transactions to get a JSON value from any
+VBox.
+
+When the transaction finishes, the \texttt{LLTStepTransaction} has in
+its Read and Write Sets the actual VBoxes that were read/written
+during the transaction. Recall that in each step the Read Set and
+Write Set of the step must contain only the changes to the context
+that reflect what has been read and written. As such, when committing
+the step, the Read Set and Write Set are processed in the following
+manner (Listing~\ref{list:stepCommit} shows the detailed algorithm):
+
+\begin{lstlisting}[caption={Algorithm for committing a Long Lived
+    Transaction's step}, label={list:stepCommit}, float]
+protected void commit() {
+  // Go through the ReadSet and the WriteSet
+  // No consistency validations are performed here, as the 
+  // purpose of this transaction is to manipulate the contents
+  // of the read/write set.
+
+  // Ensure the LogEntry creation is performed within
+  // the parent transaction
+  Transaction.setCurrent(parent);
+
+  for (Entry<VBox, Object> entry : boxesWritten.entrySet()) 
+  {
+    VBox<?> vbox = (VBox<?>) entry.getKey();
+
+    JVSTMDomainObject owner = vbox.getOwnerObject();
+
+    // Get the JSON value with a little help
+    // from Generated Code
+    String json = 
+          owner.getJSONStringForSlot(vbox.getSlotName(), 
+                                     entry.getValue());
+
+    // Create or update the LogEntry
+    context.addWriteSetEntry(owner, vbox.getSlotName(), json);
+  }
+
+  for (VBox vbox : bodiesRead.keySet()) {
+    // Create a new LogEntry if this slot wasn't
+    // read in a previous step
+    context.addReadSetEntry(vbox.getOwnerObject(), 
+                            vbox.getSlotName());
+  }
+
+  // At this point, the parent transaction has the 
+  // TransactionalContext and the updated LogEntries
+  // in its Read and Write Set
+}
+\end{lstlisting}
+
+\begin{enumerate}
+
+\item The parent transaction is set as the current transaction.
+
+\item For each item in the original Write Set, the written value is
+  converted to JSON and it is added to the
+  \texttt{TransactionalContext}. As this operation runs within the
+  parent (backend-specific) transaction, the newly created and updated
+  \texttt{LogEntries} are added to the Read and Write sets of the
+  parent transaction.
+
+\item The same is done to the Read Set.
+
+\end{enumerate}
+
+Once the nested transaction is committed, the parent
+(backend-specific) transaction will ensure that the updated
+\texttt{TransactionalContext} is stored in persistent support. Note
+that the only objects written in the parent transaction will be the
+ones representing the context and its \texttt{LogEntries}.
+
+\begin{figure}
+\centering
+\includegraphics[width=1\linewidth]{llt-step-lifecycle}
+\caption{LLTTransactionStep lifecycle}
+\label{fig:llt-lifecycle}
+\end{figure}
+
+Figure~\ref{fig:llt-lifecycle} recaps the lifecycle of a
+\texttt{LLTStepTransaction}. Figure \ref{fig:llt-lifecycle}a shows
+that as the step is running, the {\it current} transaction is the
+\texttt{LLTStepTransaction}, as such, reads and writes are kept in its
+Read/Write Sets. During the commit of the step
+(\ref{fig:llt-lifecycle}b), the {\it current} transaction is the
+parent (backend-specific), and the \texttt{LLTStepTransaction}'s
+Read/Write Sets are converted into \texttt{LogEntries}, written to the
+parent's Write Set. Finally, once all the \texttt{LogEntries} are
+created, the parent transaction is committed, persisting the step's
+changes (\ref{fig:llt-lifecycle}c).
+
+\subsubsection{Finishing the Long Lived Transaction}
+\label{sec:jvstm-commit}
+
+Once all steps of the Long Lived Transaction are finished, the LLT
+must be committed, ensuring that the changes performed in it are
+visible to the outside world. Much of this process is heavily
+dependent on the backend as it involves direct access to the
+underlying data structures.
+
+The commit process of a Long Lived Transaction occurs within a regular
+transaction. In this process, the data collected throughout the
+multiple steps is validated and replayed. Once this transaction
+commits, all written data will be merged with the global state of the
+application. The commit algorithm is shown in Listing~\ref{list:lltCommit}.
+
+The first step in committing the LLT is verifying whether all the read
+data is still valid. As every slot is mapped in a JVSTM VBox, all the
+boxes corresponding to the read slots must be verified. The process
+iterates over all read slots, locating the VBox that represents the
+slot. It then reads the VBox, so that it is added to the Read Set of
+the current transaction. Then, the latest version of the VBox is
+compared to context's version, thus ensuring that the read value was
+the latest. If the box's current version if posterior to the read
+version, the Long Lived Transaction is aborted.
+
+There is a critical subtlety in this verification
+process. Modifications to the VBox's underlying data structures are
+performed only at commit time, inside a commit lock. As the
+verification process is not run within the commit lock, it is possible
+for another transaction to concurrently update a VBox after the
+validation. Preventing incorrect behaviour is quite simple: Just read
+the box. By doing this, the box will be validated when the transaction
+commits, ensuring that the verification was correct (i.e. the version
+read during the verification is still valid).
+
+Consider the following scenario: VBox A was read in a Long Lived
+Transaction in version 1 and not changed afterwards. When the Long
+Lived Transaction commits (in a transaction X), A will be validated,
+its current version (1) compared to the version of the transaction
+(1). It passes the test and validation succeeds, proceeding with the
+commit. Concurrently (after the validation, before X commits), another
+transaction writes to A and commits, increasing its version to (X+1). When
+X attempts to commit, its read set (which mirrors the Read Set of the
+Long Lived Transaction) is validated. As A was concurrently written, X
+will be restarted, and the version verification will fail, marking the
+Long Lived Transaction as conflicting.
+
+Once the Read Set of the Long Lived Transaction is validated, the
+Write Set must be merged into the global state of the
+application. This process iterates over the written slots, and for
+each slot: (1) Locates the VBox representing it, (2) Converts the JSON
+value to the concrete value, and (c) Writes the value to the VBox.
+
+After the merge process is finished, the committing transaction has a
+full mirror of the LLT's Read and Write Sets, and once it commits,
+every change in the Write Set is available to the outside world.
+
+\begin{lstlisting}[caption={Implementation of the Long Lived
+    Transaction commit operation}, label={list:lltCommit}, float]
+void commitContext(TransactionalContext context) {
+  // Don't do anything if nothing was written
+  if (context.getWriteSet() != null) {
+    if (!validateContext(context)) {
+      throw new TransactionError();
+    }
+    mergeContext(context);
+  }
+}
+
+boolean validateContext(TransactionalContext context) {
+  int version = context.getVersion();
+  LogEntry readSetEntry = context.getReadSet();
+  while (readSetEntry != null) {
+    JVSTMDomainObject owner = readSetEntry.getDomainObject();
+
+    VBox box = owner.getBoxForSlot(readSetEntry.getSlotName());
+
+    // Read the box to ensure it goes in the read set of 
+    // the current transaction. This way, if a concurrent 
+    // transaction writes to this box between this version
+    // check and the commit of this transaction, it will
+    // be restarted
+    box.get();
+
+    if (box.body.version > version) {
+      // This means that the box was written after the LLT
+      // started, meaning it has to be aborted.
+      return false;
+    }
+    readSetEntry = readSetEntry.getNextEntry();
+  }
+  return true;
+}
+
+void mergeContext(TransactionalContext context) {
+  LogEntry entry = context.getWriteSet();
+  while (entry != null) {
+    JVSTMDomainObject owner = entry.getDomainObject();
+    VBox box = owner.getBoxForSlot(entry.getSlotName());
+    box.put(owner.
+                getValueFromJSON(writeSetEntry.getSlotName(), 
+                                 writeSetEntry.getContents()));
+    entry = entry.getNextEntry();
+  }
+}
+\end{lstlisting}
+
+\subsection{Validation}
+\label{sec:validation}
+
+This chapter proposed a solution that allows programmers to take
+advantage of Long Lived Transactions with little effort and no code
+modifications. I shall now validate the proposed solution, both in
+terms of correctness and ease of use.
+
+\subsubsection{Correctness}
+
+One of the greatest challenges when implementing Long Lived Transactions
+is ensuring that the solution provides the same correctness guarantees
+as regular transactions. I will now demonstrate that the proposed
+solution provides the same correctness guarantees as regular transactions.
+
+Transactions in the JVSTM satisfy the Opacity correctness properties
+(refer to Section~\ref{sec:opacity}). When integrated with the Fenix
+Framework, transactions may also provide the Durability property,
+depending on whether the concrete backend supports persistence.
+
+The proposed solution also all the ACID properties for Long
+Lived Transactions, as well as the Opacity correctness property.
+
+\begin{itemize}
+
+\item {\bf Atomicity} is provided as all the writes performed during
+  the LLT are only written to the global state of the application when
+  the it commits, which is performed by a regular transaction.
+
+\item {\bf Consistency} is provided in the same way as a regular
+  transaction, by ensuring that every read is still valid at commit
+  time.
+
+\item {\bf Isolation} is provided as no data is ever written to the
+  global context until the LLT is finished, and data reads are isolated.
+
+\item {\bf Durability} is provided if the underlying backend supports
+  data persistence.
+
+\end{itemize}
+
+Throughout the execution of the Long Lived Transaction, written data
+is collected and stored inside the \texttt{TransactionalContext}. Once
+the transaction is finished, written data is {\bf atomically} written
+to the global context, using a regular transaction which simply reads
+data from one domain object (the context) to be written in another
+(the actual objects written during the transaction).
+
+Long Lived Transactions are {\bf consistent}. Similarly to regular
+transactions, a LLT only commits if all the data read during the
+transaction is still valid at commit time. This is done by comparing
+the version of the LLT against the version of every box in the Read
+Set, just like a regular transaction would do.
+
+{\bf Isolation} is perhaps the hardest property to demonstrate. When
+performing a read operation within a Long Lived Transaction, the
+system ensures that the returned value will be the one at the moment
+the first step of the LLT executed (i.e. the value consistent with the
+transaction's version), just like it happens with regular
+transactions.  As for writes, similarly to what happens with regular
+transactions, written values are kept in transaction-local storage
+(i.e. in \texttt{LogEntries}) and as such, can only be accessed by the
+transaction itself.
+
+{\bf Durability} is an ``optional'' property, as not all JVSTM-based
+backends provide persistent support. Those that do however, ensure
+that the effects of Long Lived Transactions are durable, as it works as
+if writes occurred in a single regular transaction (which already
+provides the Durability property).
+
+I have shown that Long Lived Transactions provide the same correctness
+guarantees as regular transactions. There is, however, one key piece
+missing. Correctness is only guaranteed provided that all the
+information about reads and writes is collected throughout the
+transaction, and is available at commit time.
+
+Recall from the previous sections that in each step of the Long Lived
+Transaction, every read and write operation is intercepted, and for
+each operation a record is created. Such records are kept in
+\texttt{LogEntries}, which in turn are writting using regular
+transactions. As such, once the LLT is committing, it is able to read
+all the recorded data, and use it for all the necessary verifications
+and data updates.
+
+\subsubsection{Ease of Use}
+
+The primary goal of this work is to ease the development of Long Lived
+Transactions, and as such, it is rather important to provide a simple
+and concise API.
+
+The proposed solution fares well in that regard, as it allows existing
+code to be adapted to use Long Lived Transactions with no
+modifications. It is possible to program the business logic of your
+whole application using regular transactions, and with a simple
+wrapper add Long Lived Transaction support.
+
+Consider a Web Application wishing to share with its users the
+benefits of Long Lived Transactions, by allowing each individual user
+to keep a series of Long Operations. Support for this feature could be
+added at an infrastructural level, by providing the user with a UI to
+manage his Operations (creating, committing, enabling, etc). Creating
+and committing the operation would imply simple domain object
+manipulation (in particular creating and committing a
+\texttt{TransactionalContext}).
+
+Making every action performed by the user as a step of the Long Lived
+Transaction would be as simple as keeping the context in session-local
+storage, and binding it before every transaction start (using a Web
+Filter or similar). Listing~\ref{list:webFilter} shows a possible
+implementation of a Web Filter to accomplish the desired behaviour,
+and Listing~\ref{list:controller} shows how the session binding can be
+performed, using a industry-standard web framework.
+
+With this architecture, it is possible to make every operation in the
+application part of a Long Lived Transaction, without the need to
+change existing code, or changing the methodology used to develop new
+functionalities.
+
+\begin{lstlisting}[caption={Controller methods to associate a
+    TransactionalContext with a user's session},label={list:controller},float]
+@RequestMapping("/activate/{oid}")
+public void activate(@PathParam String oid) {
+  // Get the TransactionalContext from the given OID
+  TransactionalContext ctx = getAndCheckContext(oid);
+  request.getSession().setAttribute(LONG_TX_SESSION_PARAM,ctx);
+}
+
+@RequestMapping("/deactivate")
+public void deactivate() {
+  request.getSession().removeAttribute(LONG_TX_SESSION_PARAM);
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Web Filter to wrap every transaction in a
+    TransactionalContext},label={list:webFilter},float]
+public void doFilter(ServletRequest request, 
+                     ServletResponse response,
+                     FilterChain chain) {
+  HttpSession session = request.getSession();
+  TransactionalContext context = 
+                   session.getAttribute(LONG_TX_SESSION_PARAM);
+  if (context == null) {
+    chain.doFilter(request, response);
+  } else {
+    LongTransaction.setContextForThread(context);
+    try {
+      chain.doFilter(request, response);
+    } finally {
+      LongTransaction.removeContextFromThread();
+    }
+  }
+}
+\end{lstlisting}
+
+%% Optimization
+
+\section{Optimization}
+
+The solution presented in Section~\ref{chap:solution}, despite
+providing correctness guarantees and ease of use, performs poorly even
+in trivial test cases. This chapter describes a series of
+optimizations made to keep the overhead as low as possible, without
+sacrificing correctness.
+
+\subsection{Example Application}
+
+To perform accurate measurements, I developed a sample banking
+application. In this application's domain (see
+Listing~\ref{list:bank-dml}) there is a central Bank with Customers,
+which in turn have their accounts. For each account the application
+keeps its balance, and there is a method to show a customer's balance
+(by summing the balance of all his accounts). Every time a banking
+transaction (transfer, deposit, etc.) is done, a new
+\texttt{TransactionRecord} is created, containing a timestamp, the
+origin and destination accounts, as well as the amount transfered.
+
+\begin{lstlisting}[caption={Domain Model for the Banking Application},
+  label={list:bank-dml},float]
+class Bank;
+class Customer;
+
+class Account {
+  Money balance;
+  DateTime opened;
+}
+
+class TransactionRecord {
+  DateTime when;
+  Money amount;
+}
+
+relation BankHasCustomers {
+  Customer playsRole customer {
+    multiplicity *;
+  }
+  Bank playsRole bank;
+}
+
+relation CustomerHasAccounts {
+  Customer playsRole owner {
+    multiplicity *;
+  }
+  Account playsRole account {
+    multiplicity *;
+  }
+}
+
+relation TransactionRecordHasFrom {
+  Account playsRole from;
+  TransactionRecord playsRole outgoingTransaction {
+    multiplicity *;
+  }
+}
+
+relation TransactionRecordHasTo {
+  Account playsRole to;
+  TransactionRecord playsRole incomingTransaction {
+    multiplicity *;
+  }
+}
+\end{lstlisting}
+
+In this scenario, a Business Transaction will consist of several
+banking transactions, spread throughout a series of Business
+Operations. This is the perfect candidate for a Long Lived
+Transaction.
+
+Using this banking domain, a sample application was developed. In this
+fictitious scenario, the bank starts with a certain number of
+customers (this number is configurable so that different parameters
+may be measured) and a configurable number of operations. Within each
+operation, new customers and accounts are created, money is shuffled
+between all the accounts of every customer (creating a new
+TransactionRecord for each transaction), and the total balance is
+calculated. This means that in each step: (1) every object in the
+system is read, (2) many objects are written and (3) many new objects
+are created.
+
+Listing~\ref{list:bank-code} shows the implementation of the described
+Business Operation. Note the \texttt{@Atomic} annotation in the
+\texttt{doOperation} method. This ensures that each operation runs in
+its own transaction.
+
+In the {\it regular} scenario, each business operation will run within
+a regular JVSTM transaction (and thus every intermediate state is
+visible to the outside world), whereas in the {\it Long Lived}
+scenario the Business Transaction is mapped into a Long Lived
+Transaction, and each individual operation runs within an LLT step
+(meaning that intermediate state will not be visible to the outside).
+
+With the support presented in previous sections, the programmer simply
+writes the application's code as he would without considering Long
+Lived Transactions. No changes to the data structures and business
+logic are required. Listing~\ref{lst:invoc-diff} shows the two methods
+used to invoke both versions under test. Notice that they both look
+very similar as they both invoke the \texttt{doScript} method, the
+only difference is that in the LLT version, a new
+\texttt{TransactionalContext} is created and bound to the current
+thread.
+
+\begin{lstlisting}[caption={Invoking the business operation},
+ label={lst:invoc-diff},float]
+public void doRegular() {
+  doScript("regular");
+}
+
+public void doLongTx() {
+  TransactionalContext context = createContext();
+  LongTransaction.setContextForThread(context);
+  doScript("long");
+  LongTransaction.removeContextFromThread();
+}
+
+public void doScript(String scriptName) {
+  for(int i = 0; i < NUMBER_OF_OPERATIONS; i++) {
+    doOperation();
+  }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Code for the Business Operation},
+label={list:bank-code},float]
+// Bank class
+public Money getTotalMoney() {
+  Money money = Money.zero();
+  for (Customer customer : getCustomerSet())
+    money = money.add(customer.getTotalMoney());
+  return money;
+}
+
+// Customer class
+public Money getTotalMoney() {
+  Money money = Money.zero();
+  for (Account account : getAccountSet())
+    money = money.add(account.getBalance());
+  return money;
+}
+
+public void shuffle() {
+  Account firstAccount = getRandomAccount();
+  for (Account account : getAccountSet()) {
+    if (!firstAccount.equals(account)) {
+      account.transfer(account.getBalance(), firstAccount);
+    }
+  }
+}
+
+// Account class
+public void transfer(Money amount, Account to) {
+  this.withdraw(amount);
+  to.deposit(amount);
+  new TransactionRecord(from, to, amount);
+}
+
+// Benchmark class
+@Atomic(mode = TxMode.WRITE)
+public void doOperation() {
+  createCustomers();
+  logger.info("Bank has {} money.", bank.getTotalMoney());
+  shuffleMoney();
+  shuffleMoney();
+  createCustomers();
+  shuffleMoney();
+  logger.info("Bank has {} money.", bank.getTotalMoney());
+}
+
+private void createCustomers() {
+  for (int i = 0; i < 5; i++) {
+    Customer customer = new Customer(generateRandomName());
+    customer.addAccount(new Account(200d));
+    customer.addAccount(new Account(100d));
+  }
+}
+
+private void shuffleMoney() {
+  for (Customer customer : bank.getCustomerSet())
+    customer.shuffle();
+}
+\end{lstlisting}
+
+
+\subsection{Initial Performance Analysis}
+
+Figure~\ref{fig:regTime} shows the running time for a varying number
+of operations of the application presented above. As expected, the
+running time grows linearly as the number of operations increases.
+
+When looking at the Long Lived version (where every operation is a
+step of one large Long Lived Transaction), performance quickly
+degrades as the number of operations grows. The main reason for this
+performance hit is that every box read will cause many other boxes to
+be read (instead of just reading the box directly, all LogEntries
+representing the write set must be traversed, meaning that many more
+boxes are read along the way, and many more boxes will be read as the
+transaction grows in size). Recall from Section~\ref{chap:ff} that in
+the JVSTM using a multi-box layout, each slot of an object is kept in
+a separate box, and as such reading a single Log Entry will cause at
+least 3 boxes to be read: the slot name, the target object, and the
+next box in the list.
+
+Figure~\ref{fig:reg-box} shows that in a regular transaction, the
+number of boxes read grows slowly as with the number of
+operations. A similar behaviour is observed with Long Lived
+Transactions: Figure~\ref{fig:long-box-v1} shows that the number of
+boxes read grows following the same pattern as the running time.
+
+As reading boxes is one of the major sources of the poor performance
+results of this implementation, I made several improvements regarding
+the number of boxes read and boxes written. The next sections present
+those optimizations.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{time-regular}
+\caption{Running time with regular transactions}
+\label{fig:regTime}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{time-long-v1}
+\caption{Running time with Long Lived Transaction steps}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{box-regular}
+\caption{Number of boxes read on a regular transaction}
+\label{fig:reg-box}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{box-long-v1}
+\caption{Number of boxes read using Long Lived Transaction steps}
+\label{fig:long-box-v1}
+\end{figure}
+
+\subsection{Read-Set differentiation}
+
+In the initial implementation, \texttt{LogEntries} were used to reify
+both the Read Set and the Write Set.
+
+Recalling Figure \ref{fig:transactionalContext}, \texttt{LogEntries}
+store a reference to the DomainObject they refer to, the name of the
+slot, and the slot's value. Using the same objects to represent both
+sets proved to be quite expensive, as the Read Set only cares about
+which slots were read, completely ignoring its value.
+
+By analysing the nature of the Read Set, we may conclude that it is
+only necessary to store the pairs [DomainObject, Slot] read by the
+transaction (the actual version read is not relevant, as it will
+always be coherent with the transaction's version).
+
+As such, the Read Set has been replaced by an immutable
+ValueType,\footnote{ValueTypes are explained in detail in Section
+  \ref{chap:ff}.} containing a set of DomainSlotKey's (an immutable,
+lightweight object representing the pair [DomainObject, Slot]), stored
+directly into the \texttt{TransactionalContext}.
+
+This optimization greatly reduced the space required by the
+Transaction (both in-memory and persistently), as the representation
+of the Read-Set became more compact (a single slot in an object vs
+several objects).
+
+The commit time for the various steps of the Transaction also
+improved, as the lookups/insertions of entries in the Read Set are
+done entirely in memory, without the need to traverse (and
+potentially reload a large object graph).
+
+\subsection{Using BPlusTrees to hold LogEntries}
+
+As described in Section \ref{chap:ff}, the Fenix Framework uses
+BPlusTrees and other collections to implement to-many relations. These
+collections are transparently handled by the Framework, and are
+implemented using regular Domain Objects (such as Leaf Nodes and Inner
+Nodes). As keeping track of changes in relations is a requirement for
+our implementation, it is critical that changes to BPlusTrees are
+correctly tracked.
+
+This posed a great issue, as conceptually one
+\texttt{TransactionalContext} has many \texttt{LogEntries} in both its
+Read and Write Sets. If theses relations were to be implemented using
+regular one-to-many relations, a BPlusTree would be generated by the
+Framework. But as BPlusTrees must be tracked by the
+\texttt{TransactionalContext}, they could not be used to implement
+this relation.
+
+The initial approach to this problem consisted on implementing the
+relation using a Linked List, in which a LogEntry would be directly
+connected to the next one in the list, keeping the list sorted by
+insertion order. Figure~\ref{fig:linkedList} shows how this was
+designed. This approach proved to be quite inefficient, as lookups in
+the Write Set were {\it O(n)} in the number of written objects, making
+it impractical, as every \texttt{getBoxValue} operation required
+potentially traversing the whole list.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.7\linewidth]{tx-context-v1}
+\caption{LogEntry linked lists}
+\label{fig:linkedList}
+\end{figure}
+
+To solve this issue, a specialised \texttt{WriteSetBPlusTree} was
+developed. The major difference between a \texttt{WriteSetBPlusTree}
+and a regular BPlusTree is that the former is designed to be kept out
+of the scope of the TransactionalContext, making it possible to use it
+to implement the one-to-many relation between a TransactionalContext
+and its LogEntries.
+
+Another advantage of directly using a BPlusTree is that it is possible
+to take full advantage of all its features. Generically speaking, a
+BPlusTree is a map between keys and values. When the Fenix Framework
+generates a BPlusTree to represent a to-many relation, the map
+contains the pointed objects as values, and the object's identifiers
+(OID) as keys. In this case however, lookups are not performed by OID,
+but by DomainSlotKey (DomainObject+slot). As such, a WriteSetBPlusTree
+will map DomainSlotKeys to their corresponding LogEntries.
+
+With this approach, looking up a DomainSlotKey in a
+TransactionalContext means that the BPlusTree is indexed using the
+DomainSlotKey, and as such, lookup times are now {\it O(log(n))}.
+
+In Figures~\ref{fig:runtimeBPlus} and \ref{fig:comparisonBPlus} we can
+see that the running time using BPlusTrees is closer to the regular
+version. However, the growth rate (while linear) is still bigger than
+the original, with the benchmark taking on average 4.4x to
+complete. One of the big contributors for this speed improvement seems
+to be the number of Box Reads that happens throughout the
+transaction. Whereas in the original implementation this number
+reached over 8.7B, it is now reduced to about 2.1M.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{time-long-bplus}
+\caption{Running time using BPlusTrees}
+\label{fig:runtimeBPlus}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{comparison-bplus}
+\caption{Running time comparison using BPlusTrees}
+\label{fig:comparisonBPlus}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{box-long-bplus}
+\caption{Box reads using BPlusTrees}
+\label{fig:boxesBPlus}
+\end{figure}
+
+
+\subsection{Removing LogEntries}
+
+With the relation between the \texttt{TransactionalContext} and the
+\texttt{LogEntries} implemented using a BPlusTree, another issue
+arisen.
+
+Despite having great lookup times, the commit of a Long Transactions's
+step was greatly affected. Whereas inserting elements in a Linked List
+is {\it O(1)}, the insertion in the BPlusTree was still painfully
+slow.
+
+This is because the Fenix Framework requires that ValueTypes (such as
+the ones used to back the BPlusTree) are immutable combined with the
+fact that the BPlusTree provides no API for batch insertion, meaning
+that for each of the elements written within a given step, a new
+insert was performed, and the backing TreeMaps were duplicated over
+and over. 
+
+The approach to solve this issue, was to use a solution similar to the
+one used for the Read-Set: create an immutable ValueType, containing
+the mapping between all written slots and their respective values.
+
+With this change, \texttt{LogEntries} were completely taken out of the
+picture, as the only extra piece of information they provided was the
+JSON contents of the slot, which could be embedded directly into the
+WriteSet object.
+
+The issue with this approach is that, due to the immutability
+requirement, every time a batch of entries was inserted, the whole Map
+had to be duplicated, which was rather wasteful both in terms of time
+and allocated memory. So, instead of duplicating the whole Map, the
+WriteSet is actually a Linked-List of Maps, containing one node per
+transaction step. This means that the performance of lookups is now
+{\it O(s*log(n))}, {\it n} being the average size of each step, and
+{\it s} the number of steps (in which something is written) of the
+transaction.
+
+There is, however, a tradeoff. Transactions with a small number of large
+steps (which is the typical use case) are greatly improved (as lookups
+in an in-memory hash map are fast), however transactions with a large
+number of small steps take a major performance hit, as a new node is
+created in every step with small amounts of information.
+
+As such, a new node is only created if the current node has size above
+a certain (user-defined) threshold. This threshold defines whether it
+is more cost-effective to create a new node (which is practically
+instant on insertion but makes lookups more expensive) or replace the
+current one (thus duplicating the map). The user can set the threshold
+to be lower or higher according to the usage patterns of the
+application.
+
+Applications with a large number of small steps benefit from a large
+threshold, as insertions will be quite cheap and have little to no
+impact on lookups. On the other hand, applications with a small number
+of large steps should set the threshold lower than the average size of
+a step, so that there is no need to duplicate a potentially large map.
+
+\subsection{Final Performance Analysis}
+
+After applying all the optimizations described throughout this
+chapter, the solution provides quite competitive
+results. Figure~\ref{fig:runtimeFinal} shows the running time on this
+implementation. The growth rate is now very similar to the
+implementation using regular
+transactions. Figure~\ref{fig:comparisonFinal} shows a runtime
+comparison between using regular transactions and the final
+implementation of Long Lived Transactions: The slow down is now under
+40\%.
+
+The number of Box Reads is also very close to the regular transaction
+version, adding very little overhead. As the Write and Read Sets are
+now represented in specialised data structures, it is no longer
+necessary to read vast amounts of VBoxes just to determine whether a
+given element is in one of the sets. Figure~\ref{fig:boxesFinal} shows
+the total number of Box Reads, and Figure~\ref{fig:boxComparisonFinal}
+shows the number of Box Reads of both the Regular and Long Lived
+Transaction implementations.
+
+There is also one very important measurement that has not been
+mentioned thus far: The performance impact of the solution in regular
+transactions. A solution in which Long Lived Transactions are
+performant at the cost of having expensive regular transactions is not
+an acceptable one. For the proposed solution, there is close to zero
+overhead on starting regular transactions. The only performance hit is
+the added verification upon starting a new transaction, to check
+whether the current thread if bound to a
+\texttt{TransactionalContext}. Other than that, no changes were made
+that would affect the performance of regular transactions.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{time-long-final}
+\caption{Running time in the Final Implementation}
+\label{fig:runtimeFinal}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{comparison-final}
+\caption{Running time comparison for the Final Implementation}
+\label{fig:comparisonFinal}
+\end{figure}
+
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{box-long-final}
+\caption{Box reads using Long Lived Transactions - Final Version}
+\label{fig:boxesFinal}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\linewidth]{box-comparison-final}
+\caption{Box reads comparison for the Final Implementation}
+\label{fig:boxComparisonFinal}
+\end{figure}
+
+
+%% Conclusion
 
 \section{Conclusion}
 
 Many enterprise applications have requirements involving operations
-that may span very long periods of time. Yet, most applications use
-persistence layers that do not cope well with Long-Lived Transactions.
+that may span arbitrarily long periods of time. Yet, most modern data
+persistence frameworks are lackluster in regard to Long Lived
+Transactions. This forces programmers to devise clever ways to
+implement their requirements, promoting bad engineering practices and
+adding unnecessary complexity to the system.
 
-Thus, many programmers have found clever ways to implement their
-requirements using the tools at their disposal. I presented several of
-those implementations: keeping the context in the user's session,
-changing the domain to contain state information, application-level
-locks, application-level consistency checks, etc.
+The Fenix Framework, as a Framework to support enterprise applications
+that require a persistent and transactional rich domain model, merely
+provided support for regular (short-lived) transactions, and as such,
+suffered from the same perils of many other frameworks.
 
-In this document, I proposed an architecture that allows programmers
-to declare long running operations at an infrastructural level, using
-the same tools as before, without sacrificing consistency and without
-polluting the domain.
+This document has described an extension to the Fenix Framework that
+allows drop-in support for Long Lived Transactions, without the need
+to modify existing business code. The presented extension shows
+many characteristics desirable of such a solution. These include
+support for system restarts by storing intermediate data persistently,
+support for concurrent users collaborating on a single Long Lived
+Transaction, the same correctness guarantees as regular transactions
+as well as comparable performance on the execution of the
+transaction's steps.
 
-The primary goal of this work is to implement the proposed
-architecture within the Fenix Framework, and ultimately, its
-application in the Fenix web application, making Long-Lived
-Transactions easier to develop.
+~\\
+
+Throughout this document I presented a description of Long Lived
+Transactions, explained why they are difficult to implement using the
+currently available tools and shown several approaches programmers use
+to implement their requirements on top short-lived transactions. I
+presented previous work on Database Transactions, Long Lived
+Transactions, Workflow Management Systems and Software
+Transactional Memories, in an effort to understand the current
+solutions. I also demonstrated that the currently existing solutions
+are unfit to the problem I was trying to solve.
+
+~\\
+
+To familiarize the reader with the Fenix Framework, I provided a brief
+description of the Framework's architecture, with detailed
+descriptions of the parts most relevant to the solution.
+
+I then presented my solution to the problem at hand, showing the
+proposed architecture and implementation details, providing rationales
+for every design decision.
+
+The initial implementation, while fully functional, present very poor
+performance results, rendering even the simplest of test cases
+unusable. I then presented an in-depth analysis of the implementation,
+and was able to track down the reasons for such poor performance. By
+doing several improvements on how the intermediate data is stored and
+search, I was able to accomplish very good performance results,
+providing execution times close to those of regular transactions.
+
+~\\
+
+There is, however, one major limitation in the proposed solution. To
+ensure the correctness of the solution, transaction validation is
+performed in a similar way to regular transactions, by ensuring that
+the outcome of the transaction is not affected by reading outdated
+values. Due to the duration of a Long Lived Transaction, the
+probability of conflicts is much larger than with regular
+transactions. This can be a problem, as a large amount of work can be
+lost if a Long Lived Transaction is aborted. Solving this limitation
+is out of the scope of this work, nevertheless, I presented some ideas
+for future improvements for this issue.
+
+~\\
+
+Overall I believe that this work was rather successful, I was able to
+develop a solution that allows programmers to take advantage of Long
+Lived Transactions with minimal modifications to existing code, which
+was the primary goal of this dissertation.
+
 
 \clearpage \bibliography{biblio.bib} \bibliographystyle{plain}
 \end{document}
