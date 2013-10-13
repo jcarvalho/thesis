@@ -1660,41 +1660,20 @@ every change in the Write Set is available to the outside world.
 
 This chapter proposed a solution that allows programmers to take
 advantage of Long Lived Transactions with little effort and no code
-modifications. I shall now validate the proposed solution, both in
-terms of correctness and ease of use.
+modifications. I will now show how the solution fares in each of these
+aspects.
 
 \subsubsection{Correctness}
 
-One of the greatest challenges when implementing Long Lived Transactions
-is ensuring that the solution provides the same correctness guarantees
-as regular transactions. I will now demonstrate that the proposed
-solution provides the same correctness guarantees as regular transactions.
-
-Transactions in the JVSTM satisfy the Opacity correctness properties
-(refer to Section~\ref{sec:opacity}). When integrated with the Fenix
-Framework, transactions may also provide the Durability property,
-depending on whether the concrete backend supports persistence.
-
-The proposed solution also all the ACID properties for Long
-Lived Transactions, as well as the Opacity correctness property.
-
-\begin{itemize}
-
-\item {\bf Atomicity} is provided as all the writes performed during
-  the LLT are only written to the global state of the application when
-  the it commits, which is performed by a regular transaction.
-
-\item {\bf Consistency} is provided in the same way as a regular
-  transaction, by ensuring that every read is still valid at commit
-  time.
-
-\item {\bf Isolation} is provided as no data is ever written to the
-  global context until the LLT is finished, and data reads are isolated.
-
-\item {\bf Durability} is provided if the underlying backend supports
-  data persistence.
-
-\end{itemize}
+One of the greatest challenges when implementing Long Lived
+Transactions is ensuring that the solution provides the same
+correctness guarantees as regular transactions. Transactions in the
+JVSTM satisfy the Opacity correctness properties (refer to
+Section~\ref{sec:opacity}). When integrated with the Fenix Framework,
+transactions may also provide the Durability property, depending on
+whether the concrete backend supports persistence. The proposed
+solution also all the ACID properties for Long Lived Transactions, as
+well as the Opacity correctness property.
 
 Throughout the execution of the Long Lived Transaction, written data
 is collected and stored inside the \texttt{TransactionalContext}. Once
@@ -1743,61 +1722,28 @@ and data updates.
 
 The primary goal of this work is to ease the development of Long Lived
 Transactions, and as such, it is rather important to provide a simple
-and concise API.
-
-The proposed solution fares well in that regard, as it allows existing
-code to be adapted to use Long Lived Transactions with no
-modifications. It is possible to program the business logic of your
-whole application using regular transactions, and with a simple
+and concise API. The proposed solution fares well in that regard, as
+it allows existing code to be adapted to use Long Lived Transactions
+with no modifications. It is possible to program the business logic of
+your whole application using regular transactions, and with a simple
 wrapper add Long Lived Transaction support.
 
 Consider a Web Application wishing to share with its users the
 benefits of Long Lived Transactions, by allowing each individual user
-to keep a series of Long Operations. Support for this feature could be
-added at an infrastructural level, by providing the user with a UI to
-manage his Operations (creating, committing, enabling, etc). Creating
-and committing the operation would imply simple domain object
-manipulation (in particular creating and committing a
-\texttt{TransactionalContext}).
+to keep a series of Long Operations. Making every action performed by
+the user as a step of the Long Lived Transaction would be as simple as
+keeping the context in session-local storage, and binding it before
+every transaction start.
 
-Making every action performed by the user as a step of the Long Lived
-Transaction would be as simple as keeping the context in session-local
-storage, and binding it before every transaction start (using a Web
-Filter or similar). Listing~\ref{list:webFilter} shows a possible
-implementation of a Web Filter to accomplish the desired behaviour.
-
-With this architecture, it is possible to make every operation in the
-application part of a Long Lived Transaction, without the need to
-change existing code, or changing the methodology used to develop new
-functionalities.
-
-\begin{lstlisting}[caption={Web Filter to wrap every transaction in a
-    TransactionalContext},label={list:webFilter},float]
-public void doFilter(ServletRequest request, 
-                     ServletResponse response, FilterChain chain) {
-  HttpSession session = request.getSession();
-  TransactionalContext ctx = session.getAttribute(LONG_TX_SESSION_PARAM);
-  if (ctx == null) {
-    chain.doFilter(request, response);
-  } else {
-    LongTransaction.setContextForThread(ctx);
-    try {
-      chain.doFilter(request, response);
-    } finally {
-      LongTransaction.removeContextFromThread();
-    }
-  }
-}
-\end{lstlisting}
 
 %% Optimization
 
 \section{Optimization}
 
-The solution presented in Section~\ref{chap:solution}, despite
-providing correctness guarantees and ease of use, performs poorly even
-in trivial test cases. To perform accurate measurements, I developed a
-sample banking application. In this application's domain there is a
+The proposed solution fullfils all the functional requirements,
+however, performs poorly even in trivial test cases (See
+Figure~\ref{fig:longv1}). To perform accurate measurements, I developed
+a sample banking application. In this application's domain there is a
 central Bank with Customers, which in turn have their accounts. For
 each account the application keeps its balance, and there is a method
 to show a customer's balance (by summing the balance of all his
@@ -1812,7 +1758,7 @@ Operations. Each Business Operation runs within a transaction. To
 test the performance of the solution, every transaction is a step of
 one large Long Lived Transaction.
 
-Figure~\ref{fig:regTime} shows the running time for a varying number
+Figure~\ref{fig:comparisonFinal} shows the running time for a varying number
 of operations of the application presented above. As expected, the
 running time grows linearly as the number of operations increases.
 When looking at the Long Lived version (where every operation is a
@@ -1827,22 +1773,6 @@ the JVSTM using a multi-box layout, each slot of an object is kept in
 a separate box, and as such reading a single Log Entry will cause at
 least 3 boxes to be read: the slot name, the target object, and the
 next box in the list.
-
-
-\begin{figure}
-\centering
-\begin{minipage}{.5\textwidth}
-  \centering
-  \includegraphics[width=1\linewidth]{time-regular}
-  \caption{Running time with regular transactions}
-  \label{fig:regTime}
-\end{minipage}%
-\begin{minipage}{.5\textwidth}
-  \centering
-  \includegraphics[width=1\linewidth]{time-long-v1}
-  \caption{Running time with Long Lived Transaction steps}
-\end{minipage}
-\end{figure}
 
 \subsection{Read-Set differentiation}
 
@@ -1890,7 +1820,7 @@ to implement the one-to-many relation between a TransactionalContext
 and its LogEntries. Lookup times are now {\it O(log(n))} on the number
 of written objects.
 
-In Figure~\ref{fig:comparisonBPlus} we can see that the running time
+In Figure~\ref{fig:comparisonFinal} we can see that the running time
 using BPlusTrees is closer to the regular version. However, the growth
 rate (while linear) is still bigger than the original, with the
 benchmark taking on average 4.4x to complete.
@@ -1945,13 +1875,13 @@ that would affect the performance of regular transactions.
 \centering
 \begin{minipage}{.5\textwidth}
   \centering
-  \includegraphics[width=0.9\linewidth]{comparison-bplus}
-  \caption{Running time comparison using BPlusTrees}
-  \label{fig:comparisonBPlus}
+  \includegraphics[width=1\linewidth]{time-long-v1}
+  \caption{Running time with Long Lived Transaction steps}
+  \label{fig:longv1}
 \end{minipage}%
 \begin{minipage}{.5\textwidth}
   \centering
-  \includegraphics[width=0.9\linewidth]{comparison-final}
+  \includegraphics[width=1\linewidth]{3-way-times}
   \caption{Running time comparison for the Final Implementation}
   \label{fig:comparisonFinal}
 \end{minipage}
