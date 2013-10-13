@@ -219,7 +219,7 @@ transaction (in this particular case, three database transactions).
 
 In this multiple interaction scenario, the programmer must take
 special care when implementing the operation. There are several
-possible choices:
+possible approaches available:
 
 \subsubsection{Keeping a database transaction open}
 
@@ -318,48 +318,20 @@ comprise a {\it Unit of Work} performed within a Database Management
 System, and ensure that concurrent access to shared mutable data is
 done in a consistent way.
 
-By definition, a database transaction must provide the four ACID
-properties:
-
-\begin{itemize}
-
-\item {\bf Atomicity} Requires that in a transaction, all database
-  operations either {\it all} occur, or {\it none} occurs. This
-  property guarantees that the transaction is indivisible and
-  irreductible.
-
-\item {\bf Consistency} Requires that every transaction will bring the
-  database from one valid state to another (according to a series of
-  consistency predicates defined for the database).
-
-\item {\bf Isolation} Requires that individual record updates within a
-  transaction are not visible outside of that transaction. When the
-  transaction commits, all record updates are visible to the rest of
-  the system.
-
-\item {\bf Durability} Requires that once a transaction is committed,
-  it will survive permanently. This means that once a transaction is
-  committed, its effects on the data will be permanent.
-
-\end{itemize}
+A database transaction typically provides the four ACID properties:
+Atomicity, Consistency, Isolation and durability.
 
 \subsubsection{Isolation Levels}
 \label{sec:isolation}
 
 To better understand the desired isolation level of a Long-Lived
 Transaction support system, an analysis of the most common isolation
-levels is in order.
-
-Attaining full isolation between transactions, while seemingly
-necessary, can oftentimes be a burden to the DBMS, due to the required
-overhead. Thus, isolation is, out of the four ACID properties, the one
-most often relaxed. Isolation is typically implemented using Locks or
-Multiversion Concurrency Control, which may result in a loss of
-concurrency. To cope with that fact, several standard isolation levels
-have been defined.
-
-In the ANSI/ISO SQL standard\cite{melton1992ansi}, four isolation
-levels have been defined (from most to least relaxed):
+levels is in order. Attaining full isolation between transactions,
+while seemingly necessary, can oftentimes be a burden to the DBMS, due
+to the required overhead. Thus, isolation is, out of the four ACID
+properties, the one most often relaxed. In the ANSI/ISO SQL
+standard\cite{melton1992ansi}, four isolation levels have been defined
+(from most to least relaxed):
 
 \begin{itemize}
 \item {\bf Read Uncommitted} This is the lowest isolation level
@@ -599,33 +571,11 @@ and range across a variety of heterogeneous systems. Individual
 activities range from computer programs and applications to human
 activities such as meetings and decision making.
 
-In this document I shall use an abstract model to describe Workflow
-Processes, using the following concepts:
-\begin{itemize}
-\item {\bf Process} is a sequence of steps necessary to achieve a
-  goal. A process consists of activities and data.
-\item {\bf Activity} is each step within a process. Activities have a
-  name, pre and post-conditions, and a series of constraints.
-\item {\bf Control Flow} is the order in which activities are
-  executed.
-\item {\bf Data Flow} is the mapping between the inputs/outputs of the
-  data required by the activities.
-\item {\bf Conditions} specify the circumstances in which certain
-  events will happen. {\it Transition Conditions} specify whether a
-  certain activity may or may not become {\it startable}. {\it Start
-    Conditions} specify when an activity is actually started, either
-  by all its triggering events (AND) or by just one (OR). {\it Exit
-    Conditions} specify whether an activity has finished successfully.
-\end{itemize}
-In this model, an activity with no incoming activities is considered a
-{\it Start Activity}. A process is considered finished once all its
-activities are terminated.
-
 Over the years, many Workflow Modelling Languages have been devised,
 and in fact, it is still a very active area of research. Examples of
 such languages are YAWL \cite{van2005yawl}, AWGL
-\cite{fahringer2005specification} and UEML \cite{vernadat2002ueml}, among
-many others.
+\cite{fahringer2005specification} and UEML \cite{vernadat2002ueml},
+among many others.
 
 In \cite{sheth1993transactional}, the term {\it Transactional
   Workflow} was introduced, recognising the relevance of transactions
@@ -640,12 +590,10 @@ Workflow Management Systems (WFMSs) are the systems that manage
 user-defined Workflow processes for different types of jobs and
 processes. It is the WFMS that provides the transactional properties
 to the transactional workflow. These include transaction management
-techniques such as logging, compensation, etc.
-
-Given that their support for recovery and failure handling is lacking,
-unlike regular transaction systems, they typically provide the means
-for the user to determine the actions necessary to recover from
-failure and consistency issues.
+techniques such as logging, compensation, etc. Support for recovery
+and failure handling is lacking, unlike regular transaction systems,
+so WFMSs typically provide the means for the user to determine the
+actions necessary to recover from failure and consistency issues.
 
 \subsubsection{Implementing Transactional Workflows}
 
@@ -657,16 +605,6 @@ the activity's {\it script}, or dynamically using
 Event-Condition-Action (ECA) rules. This model contemplates
 compensation, execution unit communication, activity status queries
 and exception handling.
-
-In \cite{weikum1993extending}, the author suggests that semantic
-transaction concepts be merged with workflow concepts to promote
-consistent and reliable workflow systems. The author defines a
-transactional workflow to be a control sphere that binds these
-transactions, using dependencies to enforce as much behavioral
-consistency as possible.
-
-For a more comprehensive review on the topic, refer to
-\cite{worah1997transactions}.
 
 \subsubsection{Sagas}
 
@@ -711,28 +649,9 @@ Due to the increase in popularity of object-oriented programming, a
 large number of Object-Relational Mapping (ORM) tools have arisen over
 the past few years \cite{orm}. These tools range from simple data
 access layer abstractions (which simply abstract the necessary
-instructions to perform the desired operation), to fully fledged
-tools that handle every aspect of the Object-Relational Mapping,
-making the underlying database completely transparent to the
-programmer.
-
-Object-Relational Mapping tools are available for a great number of
-languages. For Java, there are many competing persistence standards,
-including: Java Persistence
-API\footnote{\texttt{http://jcp.org/en/jsr/detail?id=317}} (JPA), Java
-Data
-Objects\footnote{\texttt{http://www.jcp.org/en/jsr/detail?id=243}}
-(JDO), Spring
-Data\footnote{\texttt{http://projects.spring.io/spring-data/}}, among
-others. Both specifications allow a programmer to create domain
-entities by decorating Plain Old Java Objects (POJOs) with
-annotations, making the persistence layer transparent to the
-programmer. Whereas JDO provides a larger number of features than JPA,
-the latter has seen greater adoption by the community, both in terms
-of usage and support. The most well-known implementations of the JPA
-are Hibernate (\texttt{http://www.hibernate.org}), OpenJPA
-(\texttt{http://openjpa.apache.org}) and EclipseLink
-(\texttt{http://www.eclipse.org/eclipselink/}).
+instructions to perform the desired operation), to fully fledged tools
+that handle every aspect of the Object-Relational Mapping, making the
+underlying database completely transparent to the programmer.
 
 To provide transactional support for domain objects, ORMs typically
 delegate transaction management to the underlying Database (which is
@@ -742,21 +661,16 @@ Transaction support in ORM tools is largely dependent on the
 underlying DBMS, presenting the same challenges as described in
 Section~\ref{sec:rdbms}.
 
-Given the popularity of Java, I will now consider the JPA, and one of
-its most popular implementations, Hibernate, to understand how they
-cope with Long Lived Transactions. Note that despite the concreteness
-of the examples presented, their concepts are generic enough to be
-applied to any other ORM tool.
-
 \subsubsection{JPA Optimistic Concurrency Control}
 
-The specification of the Java Persistence API assumes the use of
-optimistic concurrency control (or optimistic locking). In this
-context, optimistic locking is used to prevent the database from
-holding on to critical resources, potentially causing high degrees of
-contention.  This is achieved by operating directly on the domain
-objects (in memory), delaying the propagation of the changes to the
-database as much as possible.
+The specification of the Java Persistence
+API\footnote{\texttt{http://jcp.org/en/jsr/detail?id=317}} (JPA)
+assumes the use of optimistic concurrency control (or optimistic
+locking). In this context, optimistic locking is used to prevent the
+database from holding on to critical resources, potentially causing
+high degrees of contention.  This is achieved by operating directly on
+the domain objects (in memory), delaying the propagation of the
+changes to the database as much as possible.
 
 As part of the JPA, there is the concept of Version field. This field
 allows {\it disconnected operation}, meaning that the reads/writes
@@ -801,9 +715,6 @@ This support is not good enough for several reasons:
   see the value written by T3, which would not be consistent. As such,
   these transactions are not {\it Serializable} (See Section \ref{sec:isolation}).
 \end{itemize}
-
-All of these reasons violate the desired properties described in
-\ref{sec:difficult}, making this system undesirable.
 
 \subsection{Software Transactional Memories}
 \label{sec:stm}
@@ -893,46 +804,9 @@ an attempt can be made to compensate for that failure. Similarly,
 clients of opaque libraries may suffer performance hits if the
 transaction fails because of the work performed in said libraries.
 
-In \cite{moss2006nested}, Moss and Hosking defined two types of
-nesting: Closed and Open.
-
-\subsubsection{Closed Nesting}
-
-A transaction is either {\it top-level}, which is similar to a
-non-nested transaction, or is nested within a {\it parent}
-transaction. In this model, only transactions with no current children
-can access data. Transactions accumulate Read and Write sets, which
-will determine the outcome of the transaction. When a transaction
-reads a value, it sees either the value in its own read or write set,
-or the value seen by its parent (a top-level transaction sees the
-latest value).
-
-When a nested transaction commits, its read and write sets are merged
-with the ones of its parent. It is only when the top-level transaction
-commits that its writes become permanent. If the nested transaction
-aborts, its read and write sets are discarded.
-
-\subsubsection{Open Nesting}
-
-Open Nested Transactions relax the isolation requirements by making
-the results of committed sub-transactions visible to other
-concurrently running transactions. When a sub-transaction commits,
-instead of merging the write set with its parent's, the writes are
-committed at the top-level. This way, a higher degree of concurrency
-is achieved, because resources may be released earlier and conflict
-detection can be applied at a higher level. It is up to the
-implementations to provide the mechanisms to handle recording of
-necessary compensating actions in case an ancestor transaction aborts.
-
-\subsubsection{Nested and Long-Lived Transactions}
-
 Nested Transactions present many similarities with Long-Lived
 Transactions. In both cases there is a top-level transaction, which
-can be divided in several smaller steps. Open nesting uses the same
-basic principle as the techniques described in previous sections,
-based on the relaxation of transactional properties, and compensating
-actions. Closed Nesting is similar to the desired properties presented
-in Section~\ref{sec:what}.
+can be divided in several smaller steps.
 
 \subsection{Persistent STMs}
 \label{sec:pstm}
