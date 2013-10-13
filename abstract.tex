@@ -2049,48 +2049,7 @@ during the transaction. Recall that in each step the Read Set and
 Write Set of the step must contain only the changes to the context
 that reflect what has been read and written. As such, when committing
 the step, the Read Set and Write Set are processed in the following
-manner (Listing~\ref{list:stepCommit} shows the detailed algorithm):
-
-\begin{lstlisting}[caption={Algorithm for committing a Long Lived
-    Transaction's step}, label={list:stepCommit}, float]
-protected void commit() {
-  // Go through the ReadSet and the WriteSet
-  // No consistency validations are performed here, as the 
-  // purpose of this transaction is to manipulate the contents
-  // of the read/write set.
-
-  // Ensure the LogEntry creation is performed within
-  // the parent transaction
-  Transaction.setCurrent(parent);
-
-  for (Entry<VBox, Object> entry : boxesWritten.entrySet()) 
-  {
-    VBox<?> vbox = (VBox<?>) entry.getKey();
-
-    JVSTMDomainObject owner = vbox.getOwnerObject();
-
-    // Get the JSON value with a little help
-    // from Generated Code
-    String json = 
-          owner.getJSONStringForSlot(vbox.getSlotName(), 
-                                     entry.getValue());
-
-    // Create or update the LogEntry
-    context.addWriteSetEntry(owner, vbox.getSlotName(), json);
-  }
-
-  for (VBox vbox : bodiesRead.keySet()) {
-    // Create a new LogEntry if this slot wasn't
-    // read in a previous step
-    context.addReadSetEntry(vbox.getOwnerObject(), 
-                            vbox.getSlotName());
-  }
-
-  // At this point, the parent transaction has the 
-  // TransactionalContext and the updated LogEntries
-  // in its Read and Write Set
-}
-\end{lstlisting}
+manner:
 
 \begin{enumerate}
 
@@ -2406,60 +2365,13 @@ sacrificing correctness.
 \subsection{Example Application}
 
 To perform accurate measurements, I developed a sample banking
-application. In this application's domain (see
-Listing~\ref{list:bank-dml}) there is a central Bank with Customers,
-which in turn have their accounts. For each account the application
-keeps its balance, and there is a method to show a customer's balance
-(by summing the balance of all his accounts). Every time a banking
-transaction (transfer, deposit, etc.) is done, a new
+application. In this application's domain there is a central Bank with
+Customers, which in turn have their accounts. For each account the
+application keeps its balance, and there is a method to show a
+customer's balance (by summing the balance of all his accounts). Every
+time a banking transaction (transfer, deposit, etc.) is done, a new
 \texttt{TransactionRecord} is created, containing a timestamp, the
 origin and destination accounts, as well as the amount transfered.
-
-\begin{lstlisting}[caption={Domain Model for the Banking Application},
-  label={list:bank-dml},float]
-class Bank;
-class Customer;
-
-class Account {
-  Money balance;
-  DateTime opened;
-}
-
-class TransactionRecord {
-  DateTime when;
-  Money amount;
-}
-
-relation BankHasCustomers {
-  Customer playsRole customer {
-    multiplicity *;
-  }
-  Bank playsRole bank;
-}
-
-relation CustomerHasAccounts {
-  Customer playsRole owner {
-    multiplicity *;
-  }
-  Account playsRole account {
-    multiplicity *;
-  }
-}
-
-relation TransactionRecordHasFrom {
-  Account playsRole from;
-  TransactionRecord playsRole outgoingTransaction {
-    multiplicity *;
-  }
-}
-
-relation TransactionRecordHasTo {
-  Account playsRole to;
-  TransactionRecord playsRole incomingTransaction {
-    multiplicity *;
-  }
-}
-\end{lstlisting}
 
 In this scenario, a Business Transaction will consist of several
 banking transactions, spread throughout a series of Business
@@ -2476,11 +2388,6 @@ TransactionRecord for each transaction), and the total balance is
 calculated. This means that in each step: (1) every object in the
 system is read, (2) many objects are written and (3) many new objects
 are created.
-
-Listing~\ref{list:bank-code} shows the implementation of the described
-Business Operation. Note the \texttt{@Atomic} annotation in the
-\texttt{doOperation} method. This ensures that each operation runs in
-its own transaction.
 
 In the {\it regular} scenario, each business operation will run within
 a regular JVSTM transaction (and thus every intermediate state is
@@ -2519,67 +2426,6 @@ public void doScript(String scriptName) {
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Code for the Business Operation},
-label={list:bank-code},float]
-// Bank class
-public Money getTotalMoney() {
-  Money money = Money.zero();
-  for (Customer customer : getCustomerSet())
-    money = money.add(customer.getTotalMoney());
-  return money;
-}
-
-// Customer class
-public Money getTotalMoney() {
-  Money money = Money.zero();
-  for (Account account : getAccountSet())
-    money = money.add(account.getBalance());
-  return money;
-}
-
-public void shuffle() {
-  Account firstAccount = getRandomAccount();
-  for (Account account : getAccountSet()) {
-    if (!firstAccount.equals(account)) {
-      account.transfer(account.getBalance(), firstAccount);
-    }
-  }
-}
-
-// Account class
-public void transfer(Money amount, Account to) {
-  this.withdraw(amount);
-  to.deposit(amount);
-  new TransactionRecord(from, to, amount);
-}
-
-// Benchmark class
-@Atomic(mode = TxMode.WRITE)
-public void doOperation() {
-  createCustomers();
-  logger.info("Bank has {} money.", bank.getTotalMoney());
-  shuffleMoney();
-  shuffleMoney();
-  createCustomers();
-  shuffleMoney();
-  logger.info("Bank has {} money.", bank.getTotalMoney());
-}
-
-private void createCustomers() {
-  for (int i = 0; i < 5; i++) {
-    Customer customer = new Customer(generateRandomName());
-    customer.addAccount(new Account(200d));
-    customer.addAccount(new Account(100d));
-  }
-}
-
-private void shuffleMoney() {
-  for (Customer customer : bank.getCustomerSet())
-    customer.shuffle();
-}
-\end{lstlisting}
-
-
 \subsection{Initial Performance Analysis}
 
 Figure~\ref{fig:regTime} shows the running time for a varying number
@@ -2599,12 +2445,6 @@ a separate box, and as such reading a single Log Entry will cause at
 least 3 boxes to be read: the slot name, the target object, and the
 next box in the list.
 
-Figure~\ref{fig:reg-box} shows that in a regular transaction, the
-number of boxes read grows slowly as with the number of
-operations. A similar behaviour is observed with Long Lived
-Transactions: Figure~\ref{fig:long-box-v1} shows that the number of
-boxes read grows following the same pattern as the running time.
-
 As reading boxes is one of the major sources of the poor performance
 results of this implementation, I made several improvements regarding
 the number of boxes read and boxes written. The next sections present
@@ -2612,29 +2452,17 @@ those optimizations.
 
 \begin{figure}
 \centering
-\includegraphics[width=0.9\linewidth]{time-regular}
-\caption{Running time with regular transactions}
-\label{fig:regTime}
-\end{figure}
-
-\begin{figure}
-\centering
-\includegraphics[width=0.9\linewidth]{time-long-v1}
-\caption{Running time with Long Lived Transaction steps}
-\end{figure}
-
-\begin{figure}
-\centering
-\includegraphics[width=0.9\linewidth]{box-regular}
-\caption{Number of boxes read on a regular transaction}
-\label{fig:reg-box}
-\end{figure}
-
-\begin{figure}
-\centering
-\includegraphics[width=0.9\linewidth]{box-long-v1}
-\caption{Number of boxes read using Long Lived Transaction steps}
-\label{fig:long-box-v1}
+\begin{minipage}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{time-regular}
+  \caption{Running time with regular transactions}
+  \label{fig:regTime}
+\end{minipage}%
+\begin{minipage}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{time-long-v1}
+  \caption{Running time with Long Lived Transaction steps}
+\end{minipage}
 \end{figure}
 
 \subsection{Read-Set differentiation}
@@ -2690,18 +2518,10 @@ this relation.
 The initial approach to this problem consisted on implementing the
 relation using a Linked List, in which a LogEntry would be directly
 connected to the next one in the list, keeping the list sorted by
-insertion order. Figure~\ref{fig:linkedList} shows how this was
-designed. This approach proved to be quite inefficient, as lookups in
-the Write Set were {\it O(n)} in the number of written objects, making
-it impractical, as every \texttt{getBoxValue} operation required
-potentially traversing the whole list.
-
-\begin{figure}
-\centering
-\includegraphics[width=0.7\linewidth]{tx-context-v1}
-\caption{LogEntry linked lists}
-\label{fig:linkedList}
-\end{figure}
+insertion order. This approach proved to be quite inefficient, as
+lookups in the Write Set were {\it O(n)} in the number of written
+objects, making it impractical, as every \texttt{getBoxValue}
+operation required potentially traversing the whole list.
 
 To solve this issue, a specialised \texttt{WriteSetBPlusTree} was
 developed. The major difference between a \texttt{WriteSetBPlusTree}
@@ -2723,7 +2543,7 @@ With this approach, looking up a DomainSlotKey in a
 TransactionalContext means that the BPlusTree is indexed using the
 DomainSlotKey, and as such, lookup times are now {\it O(log(n))}.
 
-In Figures~\ref{fig:runtimeBPlus} and \ref{fig:comparisonBPlus} we can
+In Figure~\ref{fig:comparisonBPlus} we can
 see that the running time using BPlusTrees is closer to the regular
 version. However, the growth rate (while linear) is still bigger than
 the original, with the benchmark taking on average 4.4x to
@@ -2732,26 +2552,6 @@ to be the number of Box Reads that happens throughout the
 transaction. Whereas in the original implementation this number
 reached over 8.7B, it is now reduced to about 2.1M.
 
-\begin{figure}
-\centering
-\includegraphics[width=0.9\linewidth]{time-long-bplus}
-\caption{Running time using BPlusTrees}
-\label{fig:runtimeBPlus}
-\end{figure}
-
-\begin{figure}
-\centering
-\includegraphics[width=0.9\linewidth]{comparison-bplus}
-\caption{Running time comparison using BPlusTrees}
-\label{fig:comparisonBPlus}
-\end{figure}
-
-\begin{figure}
-\centering
-\includegraphics[width=0.9\linewidth]{box-long-bplus}
-\caption{Box reads using BPlusTrees}
-\label{fig:boxesBPlus}
-\end{figure}
 
 
 \subsection{Removing LogEntries}
@@ -2815,22 +2615,15 @@ a step, so that there is no need to duplicate a potentially large map.
 
 After applying all the optimizations described throughout this
 chapter, the solution provides quite competitive
-results. Figure~\ref{fig:runtimeFinal} shows the running time on this
-implementation. The growth rate is now very similar to the
-implementation using regular
-transactions. Figure~\ref{fig:comparisonFinal} shows a runtime
-comparison between using regular transactions and the final
-implementation of Long Lived Transactions: The slow down is now under
-40\%.
+results. Figure~\ref{fig:comparisonFinal} shows a runtime comparison
+between using regular transactions and the final implementation of
+Long Lived Transactions: The slow down is now under 40\%.
 
 The number of Box Reads is also very close to the regular transaction
 version, adding very little overhead. As the Write and Read Sets are
 now represented in specialised data structures, it is no longer
 necessary to read vast amounts of VBoxes just to determine whether a
-given element is in one of the sets. Figure~\ref{fig:boxesFinal} shows
-the total number of Box Reads, and Figure~\ref{fig:boxComparisonFinal}
-shows the number of Box Reads of both the Regular and Long Lived
-Transaction implementations.
+given element is in one of the sets. 
 
 There is also one very important measurement that has not been
 mentioned thus far: The performance impact of the solution in regular
@@ -2845,33 +2638,19 @@ that would affect the performance of regular transactions.
 
 \begin{figure}
 \centering
-\includegraphics[width=0.9\linewidth]{time-long-final}
-\caption{Running time in the Final Implementation}
-\label{fig:runtimeFinal}
+\begin{minipage}{.5\textwidth}
+  \centering
+  \includegraphics[width=0.9\linewidth]{comparison-bplus}
+  \caption{Running time comparison using BPlusTrees}
+  \label{fig:comparisonBPlus}
+\end{minipage}%
+\begin{minipage}{.5\textwidth}
+  \centering
+  \includegraphics[width=0.9\linewidth]{comparison-final}
+  \caption{Running time comparison for the Final Implementation}
+  \label{fig:comparisonFinal}
+\end{minipage}
 \end{figure}
-
-\begin{figure}
-\centering
-\includegraphics[width=0.9\linewidth]{comparison-final}
-\caption{Running time comparison for the Final Implementation}
-\label{fig:comparisonFinal}
-\end{figure}
-
-
-\begin{figure}
-\centering
-\includegraphics[width=0.9\linewidth]{box-long-final}
-\caption{Box reads using Long Lived Transactions - Final Version}
-\label{fig:boxesFinal}
-\end{figure}
-
-\begin{figure}
-\centering
-\includegraphics[width=0.9\linewidth]{box-comparison-final}
-\caption{Box reads comparison for the Final Implementation}
-\label{fig:boxComparisonFinal}
-\end{figure}
-
 
 %% Conclusion
 
@@ -2931,24 +2710,10 @@ providing execution times close to those of regular transactions.
 
 ~\\
 
-There is, however, one major limitation in the proposed solution. To
-ensure the correctness of the solution, transaction validation is
-performed in a similar way to regular transactions, by ensuring that
-the outcome of the transaction is not affected by reading outdated
-values. Due to the duration of a Long Lived Transaction, the
-probability of conflicts is much larger than with regular
-transactions. This can be a problem, as a large amount of work can be
-lost if a Long Lived Transaction is aborted. Solving this limitation
-is out of the scope of this work, nevertheless, I presented some ideas
-for future improvements for this issue.
-
-~\\
-
 Overall I believe that this work was rather successful, I was able to
 develop a solution that allows programmers to take advantage of Long
 Lived Transactions with minimal modifications to existing code, which
 was the primary goal of this dissertation.
 
-
-\clearpage \bibliography{biblio.bib} \bibliographystyle{plain}
+\bibliography{biblio.bib} \bibliographystyle{plain}
 \end{document}
