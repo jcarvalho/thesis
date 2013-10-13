@@ -19,6 +19,8 @@
   xrightmargin=30pt, keywordstyle=\color{javapurple}\bfseries,
   stringstyle=\color{javared}, commentstyle=\color{javagreen}}
 
+\linespread{0.97}
+
 \begin{document}
 
 \title{Making Long-Lived Transactions Easier to Develop}
@@ -1794,55 +1796,25 @@ public void doFilter(ServletRequest request,
 
 The solution presented in Section~\ref{chap:solution}, despite
 providing correctness guarantees and ease of use, performs poorly even
-in trivial test cases. This section describes a series of
-optimizations made to keep the overhead as low as possible, without
-sacrificing correctness.
-
-\subsection{Example Application}
-
-To perform accurate measurements, I developed a sample banking
-application. In this application's domain there is a central Bank with
-Customers, which in turn have their accounts. For each account the
-application keeps its balance, and there is a method to show a
-customer's balance (by summing the balance of all his accounts). Every
-time a banking transaction (transfer, deposit, etc.) is done, a new
-\texttt{TransactionRecord} is created, containing a timestamp, the
-origin and destination accounts, as well as the amount transfered.
+in trivial test cases. To perform accurate measurements, I developed a
+sample banking application. In this application's domain there is a
+central Bank with Customers, which in turn have their accounts. For
+each account the application keeps its balance, and there is a method
+to show a customer's balance (by summing the balance of all his
+accounts). Every time a banking transaction (transfer, deposit, etc.)
+is done, a new \texttt{TransactionRecord} is created, containing a
+timestamp, the origin and destination accounts, as well as the amount
+transfered.
 
 In this scenario, a Business Transaction will consist of several
 banking transactions, spread throughout a series of Business
-Operations. This is the perfect candidate for a Long Lived
-Transaction.
-
-Using this banking domain, a sample application was developed. In this
-fictitious scenario, the bank starts with a certain number of
-customers (this number is configurable so that different parameters
-may be measured) and a configurable number of operations. Within each
-operation, new customers and accounts are created, money is shuffled
-between all the accounts of every customer (creating a new
-TransactionRecord for each transaction), and the total balance is
-calculated. This means that in each step: (1) every object in the
-system is read, (2) many objects are written and (3) many new objects
-are created.
-
-In the {\it regular} scenario, each business operation will run within
-a regular JVSTM transaction (and thus every intermediate state is
-visible to the outside world), whereas in the {\it Long Lived}
-scenario the Business Transaction is mapped into a Long Lived
-Transaction, and each individual operation runs within an LLT step
-(meaning that intermediate state will not be visible to the outside).
-
-With the support presented in previous sections, the programmer simply
-writes the application's code as he would without considering Long
-Lived Transactions. No changes to the data structures and business
-logic are required.
-
-\subsection{Initial Performance Analysis}
+Operations. Each Business Operation runs within a transaction. To
+test the performance of the solution, every transaction is a step of
+one large Long Lived Transaction.
 
 Figure~\ref{fig:regTime} shows the running time for a varying number
 of operations of the application presented above. As expected, the
 running time grows linearly as the number of operations increases.
-
 When looking at the Long Lived version (where every operation is a
 step of one large Long Lived Transaction), performance quickly
 degrades as the number of operations grows. The main reason for this
@@ -1927,28 +1899,21 @@ benchmark taking on average 4.4x to complete.
 
 With the relation between the \texttt{TransactionalContext} and the
 \texttt{LogEntries} implemented using a BPlusTree, another issue
-arisen.
-
-Despite having great lookup times, the commit of a Long Transactions's
-step was greatly affected. Whereas inserting elements in a Linked List
-is {\it O(1)}, the insertion in the BPlusTree was still painfully
-slow.
-
-This is because the Fenix Framework requires that ValueTypes (such as
-the ones used to back the BPlusTree) are immutable combined with the
-fact that the BPlusTree provides no API for batch insertion, meaning
-that for each of the elements written within a given step, a new
-insert was performed, and the backing TreeMaps were duplicated over
-and over. 
+arisen. Despite having great lookup times, the commit of a Long
+Transactions's step was greatly affected. Whereas inserting elements
+in a Linked List is {\it O(1)}, the insertion in the BPlusTree was
+rather slow. This is because the implementation of the BPlusTree does
+not support batch insertion (adding multiple \texttt{LogEntries} at
+once), and each insert requires a part of the tree's internal
+structures to be duplicated.
 
 The approach to solve this issue, was to use a solution similar to the
-one used for the Read-Set: create an immutable ValueType, containing
-the mapping between all written slots and their respective values.
-
-With this change, \texttt{LogEntries} were completely taken out of the
-picture, as the only extra piece of information they provided was the
-JSON contents of the slot, which could be embedded directly into the
-WriteSet object.
+one used for the Read Set: create an immutable ValueType, containing
+the mapping between all written slots and their respective
+values. With this change, \texttt{LogEntries} were completely taken
+out of the picture, as the only extra piece of information they
+provided was the JSON contents of the slot, which could be embedded
+directly into the WriteSet object.
 
 The issue with this approach is that, due to the immutability
 requirement, every time a batch of entries was inserted, the whole Map
@@ -1960,39 +1925,10 @@ transaction step. This means that the performance of lookups is now
 {\it s} the number of steps (in which something is written) of the
 transaction.
 
-There is, however, a tradeoff. Transactions with a small number of large
-steps (which is the typical use case) are greatly improved (as lookups
-in an in-memory hash map are fast), however transactions with a large
-number of small steps take a major performance hit, as a new node is
-created in every step with small amounts of information.
-
-As such, a new node is only created if the current node has size above
-a certain (user-defined) threshold. This threshold defines whether it
-is more cost-effective to create a new node (which is practically
-instant on insertion but makes lookups more expensive) or replace the
-current one (thus duplicating the map). The user can set the threshold
-to be lower or higher according to the usage patterns of the
-application.
-
-Applications with a large number of small steps benefit from a large
-threshold, as insertions will be quite cheap and have little to no
-impact on lookups. On the other hand, applications with a small number
-of large steps should set the threshold lower than the average size of
-a step, so that there is no need to duplicate a potentially large map.
-
-\subsection{Final Performance Analysis}
-
-After applying all the optimizations described throughout this
-chapter, the solution provides quite competitive
+This solution provides quite competitive
 results. Figure~\ref{fig:comparisonFinal} shows a runtime comparison
 between using regular transactions and the final implementation of
 Long Lived Transactions: The slow down is now under 40\%.
-
-The number of Box Reads is also very close to the regular transaction
-version, adding very little overhead. As the Write and Read Sets are
-now represented in specialised data structures, it is no longer
-necessary to read vast amounts of VBoxes just to determine whether a
-given element is in one of the sets. 
 
 There is also one very important measurement that has not been
 mentioned thus far: The performance impact of the solution in regular
