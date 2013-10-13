@@ -114,25 +114,12 @@ results comparable to those of regular transactions.
 The contribution of this dissertation is a solution that will allow
 programmers to develop Long Lived Transactions with minimal effort
 using the Fenix Framework. The major highlights of this contribution
-are:
-
-\begin{itemize}
-
-\item Infrastructural-level support for Long Lived
-  Transactions
-
-\item Add Long Lived Transaction support to existing applications with
-  minimal code modifications
-
-\item A simple API to manage the life-cycle of Long Lived Transactions
-
-\item Support for multiple concurrent users working on a Long Lived
-  Transaction
-
-\item Small overhead on the execution of the Long Lived Transaction's
-  steps
-
-\end{itemize}
+are: (1) Infrastructural-level support for Long Lived Transactions,
+(2) Add Long Lived Transaction support to existing applications with
+minimal code modifications, (3) A simple API to manage the life-cycle
+of Long Lived Transactions, (4) Support for multiple concurrent users
+working on a Long Lived Transaction and (5) Small overhead on the
+execution of the Long Lived Transaction's steps.
 
 %% LLTs
 
@@ -1226,63 +1213,6 @@ in the DML, two Java classes are created: the domain class, in which
 programmers can include business logic, and a \texttt{Base} class
 (which the domain class extends) containing generated methods to
 access the persistent entities of the object.
-
-Consider the DML on
-Listing~\ref{list:class-example}. Listing~\ref{list:courseCode} shows
-the Code generated for the \texttt{Course} class and its corresponding
-base class, as well as the \texttt{Department} base class, containing
-the API generated from the domain definition. For each slot declared
-in the DML a pair of Getter and Setter is generated, providing access
-to the persistent field. For relations there are two types of
-generated methods, depending on the multiplicity of the relation in
-the class. For instance, as one \texttt{Course} has one
-\texttt{Department}, the generated methods are simple getters/setters
-for the \texttt{Department}, as if it were a simple slot. On the other
-side of the relation, as a \texttt{Department} has multiple
-\texttt{Course} objects, the generated methods return a Set containing
-all the elements in the relation. The Framework also generates two
-methods to add and remove an element from the Set.
-
-Whereas in the code shown in this document the body of such methods is
-\texttt{/* Generated */}, the actual code will depend on the backend
-used in runtime. More details about the Code Generation process are
-given in Section~\ref{sec:codeGen}.
-
-\begin{lstlisting}[caption={Generated Course class},
-label={list:courseCode}, float]
-public class Course extends Course_Base {
-  public Course() {
-    super();
-  }
-}
-
-public abstract class Course_Base extends
-                                       AbstractDomainObject {
-
-  public String getName() { /* Generated */ }
-  public void setName(String value) { /* Generated */ }
-
-  public String getObjectives() { /* Generated */ }
-  public void setObjectives(String value) { /* Generated */ }
-
-  (...)
-
-  public Department getDepartment() { /* Generated */ }
-  public void setDepartment(Department value) {/* Generated */}
-
-}
-
-public abstract class Department_Base extends
-                                      AbstractDomainObject {
-
-  public Set<Course> getCourseSet() { /* Generated */ }
-
-  public void addCourse(Course couse) { /* Generated */ }
-
-  public void removeCourse(Course course) { /* Generated */ }
-
-}
-\end{lstlisting}
 
 \subsubsection{Value Types}
 
