@@ -7,7 +7,7 @@
 %
 
 \usepackage[utf8]{inputenc}
-\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+\usepackage[left=1.5cm,right=1.5cm,top=2cm,bottom=2cm]{geometry}
 
 \usepackage{color}
 \definecolor{javared}{rgb}{0.6,0,0} % for strings
@@ -20,6 +20,8 @@
   stringstyle=\color{javared}, commentstyle=\color{javagreen}}
 
 \linespread{0.97}
+
+\usepackage[belowskip=-10pt,aboveskip=0pt]{caption}
 
 \begin{document}
 
@@ -684,18 +686,16 @@ present in the database, thus ensuring that no dirty reads will occur.
 \subsubsection{Hibernate Long Conversations}
 
 Hibernate supports the concept of {\it Long Conversations} by allowing
-a session\footnote{A Hibernate session implements the Unit of Work
-  design pattern \cite{fowler2003patterns}.} to remain open as long as
-the user interaction lasts, potentially executing multiple database
-transactions. However, the programmer is responsible for ensuring the
-atomicity and isolation of the business transaction, by following a
-very strict pattern: All transactions but the last must only read
-data, and, thus only the last database transaction can update
-data. Hibernate assists the programmer in verifying that the data read
-across the multiple transactions is consistent, using an object
-versioning mechanism. However, this verification only works if all the
-data required for the application is read within the first database
-transaction.
+a session to remain open as long as the user interaction lasts,
+potentially executing multiple database transactions. However, the
+programmer is responsible for ensuring the atomicity and isolation of
+the business transaction, by following a very strict pattern: All
+transactions but the last must only read data, and, thus only the last
+database transaction can update data. Hibernate assists the programmer
+in verifying that the data read across the multiple transactions is
+consistent, using an object versioning mechanism. However, this
+verification only works if all the data required for the application
+is read within the first database transaction.
 
 This support is not good enough for several reasons:
 
@@ -940,6 +940,7 @@ programmers can include business logic, and a \texttt{Base} class
 access the persistent entities of the object.
 
 \subsubsection{Value Types}
+\label{sec:json}
 
 In the DML there is a distinction between entities and value
 objects. Whereas an entity is transactional and persistent, a value
@@ -949,33 +950,6 @@ known as Value Types. A value type contains information regarding the
 Java Type (such as \texttt{java.math.BigDecimal}), an alias (such as
 \texttt{BigDecimal}), and information regarding how the object will be
 externalised/internalized.
-
-There are two categories of Value Types: Builtin (Java Primitives and
-their wrappers, Enums, JodaTime types, JsonElement, and byte arrays)
-and user-defined. User-defined types allow the programmer to use any
-type they wish as a slot, provided the type is immutable and can be
-expressed in terms of other Value Types. The Framework knows how to
-handle Builtin Value Types (i.e. how to store/retrieve from persistent
-support). User-defined, on the other hand, require that the programmer
-specify how the type is externalised/internalized. The externalised
-type must be either a Builtin Value Type, or a used-defined type that
-ultimately is externalised to a builtin type.
-
-\subsubsection{JSON}
-\label{sec:json}
-
-JSON (JavaScript Object Notation) is described as being ``[...] a
-lightweight data-interchange format''. JSON is quickly becoming the
-de-facto standard to interchange data across heterogeneous systems,
-replacing XML in many cases. The Fenix Framework provides native JSON
-support (by allowing it as a Builtin Value Type), using Google's
-GSON\footnote{\url{http://code.google.com/p/google-gson/}}.  Using
-JSON allows the programmer to define arbitrarily complex Value Types
-with little effort, as well as simplifying externalisation code. The
-Framework also provides support to transform any Value Type to/from
-JSON, meaning that a JsonElement slot is enough to keep any value the
-Fenix Framework is able to handle. As shall be presented in
-Section~\ref{chap:solution}, this proves to be a crucial feature.
 
 \subsection{Architecture}
 \label{sec:ff-arch}
@@ -997,16 +971,6 @@ This way, not only are applications portable across several
 technologies (MySQL, Neo4j, Hibernate, etc), but also testing support is
 greatly enhanced, as there is no need to mock the persistence API, as
 tests can be run using an in-memory backend.
-
-Figure~\ref{fig:ff-arch} shows the major modules that constitute the Fenix
-Framework.
-
-\begin{figure}
-\centering
-\includegraphics[width=0.8\linewidth]{ff-arch}
-\caption{Fenix Framework's Layered Architecture}
-\label{fig:ff-arch}
-\end{figure}
 
 The DML Compiler module contains the parser responsible for reading
 DML files and creating an in-memory description of the Domain Model,
@@ -1069,23 +1033,15 @@ backends, as their API is private and as such subject to change even
 among minor versions, and having a dependency on a specific backend
 means that portability must be sacrificed.
 
-The fact that backends have a clear separation from the Public API
-allows for a much faster evolution of the backend's
-implementation. Major internal changes can be done without affecting
-the end-users directly, even in a revision release, whereas changes to
-the public API require either a major or minor release.
-
 \subsection{JVSTM}
 \label{sec:jvstm}
 
 The Java Versioned Software Transactional Memory (JVSTM)
 \cite{cachopo2006versioned} is a pure-Java implementation of a
-Software Transactional Memory (see Section~\ref{sec:stm}).
-
-The JVSTM uses the concept of Versioned Boxes (VBoxes) to make a
-memory location transactional, keeping the history of values for that
-position, one for each version of the box. Reads and writes to VBoxes
-are tracked by the JVSTM in a per-transaction basis.
+Software Transactional Memory (see Section~\ref{sec:stm}).  It uses
+the concept of Versioned Boxes (VBoxes) to make a memory location
+transactional, keeping the history of values for that position, one
+for each version of the box.
 
 Each transaction begins at a given moment, acquiring the version
 number at that moment. The version number is used during the
@@ -1096,76 +1052,35 @@ read-only transactions, as concurrent transactions writing to the read
 boxes will write a new version instead of overwriting its previous
 value.
 
-\subsubsection{Integration}
-
 The JVSTM is integrated with the Fenix Framework, as one of the
 multiple available backends. This document focuses on the backend
-named \texttt{jvstm-common}. This backend uses the JVSTM for the
-transactional support, while abstracting the persistence
-details. Despite being meant to be extended, \texttt{jvstm-common}
-provides an in-memory implementation of the persistence API.
-
-The implementation of the solution proposed in
-Chapter~\ref{chap:solution} rests on top of this abstract backend,
-meaning that it will work on top of any persistent support, as long as
-the JVSTM is used.
-
-In this backend, Base classes use VBoxes to store the value objects
-transactionally, thus taking advantage of the JVSTM. The generated
-getters and setters are backed by \texttt{VBox.get()} and
-\texttt{VBox.set()}, and can be invoked only from within a
-transaction.
-
-\subsubsection{VBoxes}
+named \texttt{jvstm-common}, on top of which the solution will be
+developed. This backend uses the JVSTM for the transactional support,
+while abstracting the persistence details. Despite being meant to be
+extended, \texttt{jvstm-common} provides an in-memory implementation
+of the persistence API.
 
 A plain JVSTM VBox is simply a wrapper to a Linked-List of pairs
-[Version, Value], containing the history of values for that box.
-
-A Fenix Framework VBox however, also contains a back-pointer to its
-owner, as well as the name of the slot it represents. This allows for
-the persistence support to know where to store the value of the Box.
-
-Those specialised VBoxes can have their previous values
-Garbage-Collected and reloaded from persistent support on-demand.
-
-\subsubsection{VBoxes for slots}
-
-There are two layouts for Domain Object's slots: {\it (1)} Using one
-VBox to keep the entire state of the object (One-Box), and {\it (2)}
-Using one VBox per slot (Multi-Box).
-
-The first layout suffers from a higher number of conflicts, as reading
-one slot will conflict with writing another slot on the same object
-(as they are mapped to the same VBox), however the memory usage is
-much lower, as each VBox has a cost for its underlying data
-structures. This aspect is critical in applications with a dense
-domain model, with many objects and many slots.
-
-Smaller applications can use the Multi-Box layout to greatly reduce
-conflicts. In this layout, each domain slot is given its own VBox.
-
-In both layouts, a specialised VBox called \texttt{PrimitiveBox} is
-used to store either the object's state or the slot's value. There is
-no added behaviour or data in a PrimitiveBox, however persistence
-support uses this information to determine whether to reload a box
-containing the state (or part of it) of an object or a box for a relation.
+[Version, Value], containing the history of values for that box. In
+the Fenix Framework, VBoxes are specialised to hold the value of an
+object's slot (persistent slot declared in the DML). A Fenix
+Framework VBox contains a back-pointer to its owner, as well as the
+name of the slot it represents. This allows for the persistence
+support to know where to store the value of the Box.  Those
+specialised VBoxes can have their previous values Garbage-Collected
+and reloaded from persistent support on-demand.
 
 \subsubsection{VBoxes for relations}
 
-In the One-Box layout, to-one relations are kept inside the object's
-state, and as such require no special handling. 
-
-On the other hand, for a Multi-Box layout, the reference to the
-related object is kept in a \texttt{ReferenceBox}. Just like a
-\texttt{PrimitiveBox}, it contains no extra behaviour or data, and
-serves only as a marker for persistence support to know it has to load
-an object reference.
+In terms of VBoxes, {\it to-one} relations are treated just like any
+other slot, and as such, the reference to the related object is simply
+kept within a regular VBox.
 
 To-many relations however, are handled in a very different manner. The
 preferred approach is to use a B+Tree \cite{elmasri2009fundamentals}
 to store the objects on the to-many side of the relation. For each
-to-many relation, a {\it ReferenceBox} is generated, containing a
-reference to the domain object representing the B+Tree.
+to-many relation, a VBox is generated, referencing the domain object
+representing the B+Tree.
 
 The Fenix Framework provides an implementation of persistent B+Trees
 that does not use to-many relations (by design, so it can be used to
@@ -1176,22 +1091,6 @@ references to the nodes they point to. Leaf nodes follow the same
 strategy, keeping the mapping between keys and the objects they point
 to (in reality they can be used to point at anything, however for this
 document we are only interested in B+Trees containing domain objects).
-
-As a B+Tree is generically a key-value map, its usage can be twofold:
-provide a simple way to implement to-many relations and provide
-support for relations indexed by a slot of the related
-object. Consider the previously presented {\it Course} example. In
-this model, one Course has many Students. As such, there is a B+Tree
-slot in the Course Base class, which contain the references to all the
-students enrolled in that particular course.
-
-In the usual scenario, the B+Tree contains a mapping between OIDs and
-the respective target object (which is rather useless, as the Fenix
-Framework provides a lightweight API to read an object by its OID).
-Now consider a scenario where the set of students must be indexed by
-student name. The B+Tree will now contain a mapping between the
-student's name and the target student, allowing for indexed lookups of
-students by name.
 
 %% Solution
 
@@ -1402,18 +1301,8 @@ further action is required.
 The previous section described a solution to ease the development of
 Long Lived Transaction. This section describes how that solution was
 implemented on the Fenix Framework, using the JVSTM as the
-transactional support provider.
-
-The implementation is divided in two parts: (1) The {\bf long-tx-api}
-module, which contains the domain specification of the
-\texttt{TransactionalContext} and \texttt{LogEntries}, as well as the
-API available to the programmer. (2) A {\bf JVSTM-based}
-implementation of Long Lived Transactions. The goal of this division
-is twofold: to allow alternative implementations on top of non-JVSTM
-backends, and to hide internal implementation details from the
-programmer (who should not depend on backend code).
-
-\subsubsection{API}
+transactional support provider. The implementation is divided in two
+major parts.
 
 The {\bf long-tx-api} module is pretty straightforward. It contains
 the domain definition described in
@@ -1430,28 +1319,9 @@ started. With the context in hand, the programmer simply needs to bind
 it to the thread running the step. Listing~\ref{list:longTxBind} shows
 the code necessary to bind the context to a thread.
 
-Using only this simple API, the programmer is able to easily code
-features that benefit from Long Lived Transactions with little effort.
-
-\subsubsection{JVSTM implementation}
-
-In the proposed architecture, several features are required to be
-provided by the backend:
-
-\begin{itemize}
-
-\item {\bf Context Detection} The backend detects the presence of a
-  \texttt{TransactionalContext} in the current thread, and begins a
-  context-aware transaction.
-
-\item {\bf Intercepting reads/writes} Ensure that reads and writes
-  performed in LLT steps are not performed to the global state of the
-  application.
-
-\item {\bf Context commit} Once the Long Lived Transaction is
-  finished, merge its changes with the global state.
-
-\end{itemize}
+As many of the required operations are specific to the concrete
+backend, the \texttt{jvstm-common} backend was extended to support
+Long Lived Transactions. Below are the major changes.
 
 \subsubsection{Context Detection}
 
@@ -1475,19 +1345,6 @@ the current thread, and if one is present, the following happens:
   the version of the current transaction.
 
 \end{enumerate}
-
-This algorithm is shown in Listing~\ref{list:stepStart}.
-
-\begin{lstlisting}[caption={Beginning a new Long Lived Transaction
-    step}, label={list:stepStart}, float]
-TransactionalContext ctx = LongTransactionSupport.getContextForThread();
-if (ctx != null) {
-  // Begin a new Top Level Write-Transaction
-  JvstmInFenixTransaction underlying = Transaction.begin(false);
-  LLTStepTransaction txStep = new LLTStepTransaction (ctx, underlying);
-  txStep.start();
-}
-\end{lstlisting}
 
 The main reason to use a Nested transaction is to allow portability
 across concrete persistence implementations, as the
@@ -1581,7 +1438,7 @@ ones representing the context and its \texttt{LogEntries}.
 
 \begin{figure}
 \centering
-\includegraphics[width=1\linewidth]{llt-step-lifecycle}
+\includegraphics[width=.9\linewidth]{llt-step-lifecycle}
 \caption{LLTTransactionStep lifecycle}
 \label{fig:llt-lifecycle}
 \end{figure}
@@ -1785,14 +1642,13 @@ necessary to store the pairs [DomainObject, Slot] read by the
 transaction (the actual version read is not relevant, as it will
 always be coherent with the transaction's version).
 
-As such, the Read Set has been replaced by an immutable
-ValueType,\footnote{ValueTypes are explained in detail in Section
-  \ref{chap:ff}.} containing a set of DomainSlotKey's (an immutable,
-lightweight object representing the pair [DomainObject, Slot]), stored
-directly into the \texttt{TransactionalContext}. This optimization
-greatly reduced the space required by the Transaction (both in-memory
-and persistently), as the representation of the Read-Set became more
-compact (a single slot in an object vs several objects).
+As such, the Read Set has been replaced by an immutable ValueType,
+containing a set of DomainSlotKey's (an immutable, lightweight object
+representing the pair [DomainObject, Slot]), stored directly into the
+\texttt{TransactionalContext}. This optimization greatly reduced the
+space required by the Transaction (both in-memory and persistently),
+as the representation of the Read-Set became more compact (a single
+slot in an object vs several objects).
 
 \subsection{Using B+Trees to hold LogEntries}
 
