@@ -7,7 +7,7 @@
 %
 
 \usepackage[utf8]{inputenc}
-\usepackage[left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
 
 \usepackage{color}
 \definecolor{javared}{rgb}{0.6,0,0} % for strings
@@ -857,50 +857,27 @@ Some of the presented solutions are based on relaxation of
 transactional properties, such as allowing breaches in
 isolation. Long-Lived Transactions should run with the same
 transactional properties as regular transactions, and thus, relaxation
-is not acceptable.
-
-Despite the similarities between Workflow Processes and Long-Lived
-Transactions, WFMSs are not suited for our requirements. Typical WFMSs
-are not concerned with the ACID properties of transactions, and rely
-heavily on high-level compensatory actions for data consistency.
-
-The solution proposed in Section~\ref{sec:orm} (Hibernate) imposes a
-very strict programming model, which may not be adequate for some
-applications, and does not guarantee that Long-Lived Transactions will
-have the same transactional properties as regular transactions.
-
-None of the proposed solutions fit the requirements specified in
-Section 2, and thus, a new approach is needed.
+is not acceptable. None of the proposed solutions fit the
+requirements, and thus, a new approach is needed.
 
 %% FF
 
 \section{Fenix Framework}
 \label{chap:ff}
 
-This chapter describes in detail the major components of the Fenix
-Framework, which is the Framework used to implement the solution
-proposed throughout this document. Section \ref{sec:dml} describes the
-Domain Modelling Language, used to describe the application's domain
-model. Section \ref{sec:ff-arch} describes the high-level architecture
-of the Framework, briefly describing its major components and their
-interaction. Section \ref{sec:codeGen} describes the process of Code
-Generation. Section \ref{sec:jvstm} presents the Java Versioned STM
-(JVSTM), and its integration with the Fenix Framework. The information
-presented in this chapter is critical to understanding the proposed
-solution, as well as its challenges.
+This section briefly describes the Fenix Framework, which is the
+Framework used to implement the solution proposed throughout this
+document. The information presented in this chapter is critical to
+understanding the proposed solution, as well as its challenges.
 
 \subsection{Domain Modelling Language}
 \label{sec:dml}
 
-The Fenix Framework is aimed at entreprise-class applications with a
-rich domain model in an object-oriented paradigm. Such applications
-typically consist of class hierarchies representing entities with
-relationships among them, forming an interconnected graph. 
-
 The Domain Modelling Language (DML) is a Domain-Specific Language
-designed to represent such domain models, separating the domain's
-structure from its behaviour. The DML is designed with modularity as a
-core concern, allowing for incremental and modular domain definition.
+designed to represent object-oriented rich domain models, separating
+the domain's structure from its behaviour. The DML is designed with
+modularity as a core concern, allowing for incremental and modular
+domain definition.
 
 In a DML file, programmers write their domain definition in a
 Java-like language. A class definition consists of the class name, the
@@ -953,7 +930,6 @@ roles, in this case, one \texttt{Department} has zero or more
 \texttt{Courses}, and one \texttt{Course} has between one and one
 (exactly one) \texttt{Department}.
 
-
 From the domain definition, the Fenix Framework generates Java getters
 and setters for the properties and relations. For each class described
 in the DML, two Java classes are created: the domain class, in which
@@ -967,26 +943,21 @@ In the DML there is a distinction between entities and value
 objects. Whereas an entity is transactional and persistent, a value
 object is immutable and not persistent. Value objects are used as the
 values for slots of DML classes, and must be of well-known types,
-known as Value Types.
-
-A value type contains information regarding the Java Type (such as
-\texttt{java.math.BigDecimal}), an alias (such as
+known as Value Types. A value type contains information regarding the
+Java Type (such as \texttt{java.math.BigDecimal}), an alias (such as
 \texttt{BigDecimal}), and information regarding how the object will be
 externalised/internalized.
 
 There are two categories of Value Types: Builtin (Java Primitives and
 their wrappers, Enums, JodaTime types, JsonElement, and byte arrays)
 and user-defined. User-defined types allow the programmer to use any
-type they wish as a slot, provided the type is immutable (explanation
-as to why is provided ahead) and can be expressed in terms of other
-Value Types.
-
-The Framework knows how to handle Builtin Value Types (i.e. how to
-store/retrieve from persistent support). User-defined, on the other
-hand, require that the programmer specify how the type is
-externalised/internalized. The externalised type must be either a
-Builtin Value Type, or a used-defined type that ultimately is
-externalised to a builtin type.
+type they wish as a slot, provided the type is immutable and can be
+expressed in terms of other Value Types. The Framework knows how to
+handle Builtin Value Types (i.e. how to store/retrieve from persistent
+support). User-defined, on the other hand, require that the programmer
+specify how the type is externalised/internalized. The externalised
+type must be either a Builtin Value Type, or a used-defined type that
+ultimately is externalised to a builtin type.
 
 \subsubsection{JSON}
 \label{sec:json}
@@ -994,18 +965,15 @@ externalised to a builtin type.
 JSON (JavaScript Object Notation) is described as being ``[...] a
 lightweight data-interchange format''. JSON is quickly becoming the
 de-facto standard to interchange data across heterogeneous systems,
-replacing XML in many cases.
-
-As such, in the context of this work, the Framework was extended to
-provide native JSON support (by allowing it as a Builtin Value Type),
-using Google's GSON\footnote{\url{http://code.google.com/p/google-gson/}}.
-Using JSON allows the programmer to define arbitrarily complex Value
-Types with little effort, as well as simplifying externalisation code.
-
-The Framework also provides support to transform any Value Type
-to/from JSON, meaning that a JsonElement slot is enough to keep any
-value the Fenix Framework is able to handle. As shall be presented in
-Chapter~\ref{chap:solution}, this proves to be a crucial feature.
+replacing XML in many cases. The Fenix Framework provides native JSON
+support (by allowing it as a Builtin Value Type), using Google's
+GSON\footnote{\url{http://code.google.com/p/google-gson/}}.  Using
+JSON allows the programmer to define arbitrarily complex Value Types
+with little effort, as well as simplifying externalisation code. The
+Framework also provides support to transform any Value Type to/from
+JSON, meaning that a JsonElement slot is enough to keep any value the
+Fenix Framework is able to handle. As shall be presented in
+Section~\ref{chap:solution}, this proves to be a crucial feature.
 
 \subsection{Architecture}
 \label{sec:ff-arch}
@@ -1104,54 +1072,6 @@ allows for a much faster evolution of the backend's
 implementation. Major internal changes can be done without affecting
 the end-users directly, even in a revision release, whereas changes to
 the public API require either a major or minor release.
-
-\subsection{Code Generation}
-\label{sec:codeGen}
-
-As previously described, access to persistent fields of domain objects
-is done using generated methods in Base classes.
-
-Code generation is closely tied to the specific backends, as it is
-typically used to support the process of persisting an object to a
-database. An example of an operation performed in generated code is
-binding a \texttt{PreparedStatement} with the values of the object's
-slots, or externalizing the object to JSON.
-
-There are two major components in code generation:
-
-\begin{itemize}
-
-\item The default code generator, from which every other generator
-  inherits, defines the public generated API for domain classes. Its
-  major use-case is to compile backend agnostic application modules
-  that only need base classes because of their API (modules aren't
-  bundled with base classes, those are generated on-demand on
-  depending modules or applications).
-
-\item Backend-provided code generators. These generators extend the
-  base ones, thus providing the same API, using backend-specific
-  artifacts to fullfil the API. Backends can also use code generators
-  to optimise runtime performance, by injecting in generated code
-  values that otherwise would have to be computed at runtime.
-\end{itemize}
-
-Whereas this Code Generation architecture allows for great
-optimizations (it allows backends to perform complex operations
-without resorting to reflection), it comes with a tradeoff: Forcing
-the domain classes to inherit from Base classes hinders the
-readability of the code (as the user is required to either check the
-DML or the base class to find out the super class), makes it
-impossible to invoke constructors of the super class (as the Base
-class only generates the no-arg constructor), does not allow the
-programmer to choose the visibility of the generated methods (as they
-are always generated public) among other issues.
-
-The Code Generation step also provides a mechanism to transfer
-compile-time information to the runtime. Information such as the App
-Name (which is used at runtime to generate the graph of DML
-dependencies), the name of the Backend used to compile the final
-application (to allow for automatic initialization), as well as pass
-user-defined parameters to runtime.
 
 \subsection{JVSTM}
 \label{sec:jvstm}
@@ -1874,7 +1794,7 @@ public void doFilter(ServletRequest request,
 
 The solution presented in Section~\ref{chap:solution}, despite
 providing correctness guarantees and ease of use, performs poorly even
-in trivial test cases. This chapter describes a series of
+in trivial test cases. This section describes a series of
 optimizations made to keep the overhead as low as possible, without
 sacrificing correctness.
 
@@ -1915,32 +1835,7 @@ Transaction, and each individual operation runs within an LLT step
 With the support presented in previous sections, the programmer simply
 writes the application's code as he would without considering Long
 Lived Transactions. No changes to the data structures and business
-logic are required. Listing~\ref{lst:invoc-diff} shows the two methods
-used to invoke both versions under test. Notice that they both look
-very similar as they both invoke the \texttt{doScript} method, the
-only difference is that in the LLT version, a new
-\texttt{TransactionalContext} is created and bound to the current
-thread.
-
-\begin{lstlisting}[caption={Invoking the business operation},
- label={lst:invoc-diff},float]
-public void doRegular() {
-  doScript("regular");
-}
-
-public void doLongTx() {
-  TransactionalContext context = createContext();
-  LongTransaction.setContextForThread(context);
-  doScript("long");
-  LongTransaction.removeContextFromThread();
-}
-
-public void doScript(String scriptName) {
-  for(int i = 0; i < NUMBER_OF_OPERATIONS; i++) {
-    doOperation();
-  }
-}
-\end{lstlisting}
+logic are required.
 
 \subsection{Initial Performance Analysis}
 
@@ -1961,10 +1856,6 @@ a separate box, and as such reading a single Log Entry will cause at
 least 3 boxes to be read: the slot name, the target object, and the
 next box in the list.
 
-As reading boxes is one of the major sources of the poor performance
-results of this implementation, I made several improvements regarding
-the number of boxes read and boxes written. The next sections present
-those optimizations.
 
 \begin{figure}
 \centering
@@ -1984,16 +1875,11 @@ those optimizations.
 \subsection{Read-Set differentiation}
 
 In the initial implementation, \texttt{LogEntries} were used to reify
-both the Read Set and the Write Set.
-
-Recalling Figure \ref{fig:transactionalContext}, \texttt{LogEntries}
-store a reference to the DomainObject they refer to, the name of the
-slot, and the slot's value. Using the same objects to represent both
-sets proved to be quite expensive, as the Read Set only cares about
-which slots were read, completely ignoring its value.
-
-By analysing the nature of the Read Set, we may conclude that it is
-only necessary to store the pairs [DomainObject, Slot] read by the
+both the Read Set and the Write Set. Using the same objects to
+represent both sets proved to be quite expensive, as the Read Set only
+cares about which slots were read, completely ignoring its value.  By
+analysing the nature of the Read Set, we may conclude that it is only
+necessary to store the pairs [DomainObject, Slot] read by the
 transaction (the actual version read is not relevant, as it will
 always be coherent with the transaction's version).
 
@@ -2001,74 +1887,41 @@ As such, the Read Set has been replaced by an immutable
 ValueType,\footnote{ValueTypes are explained in detail in Section
   \ref{chap:ff}.} containing a set of DomainSlotKey's (an immutable,
 lightweight object representing the pair [DomainObject, Slot]), stored
-directly into the \texttt{TransactionalContext}.
+directly into the \texttt{TransactionalContext}. This optimization
+greatly reduced the space required by the Transaction (both in-memory
+and persistently), as the representation of the Read-Set became more
+compact (a single slot in an object vs several objects).
 
-This optimization greatly reduced the space required by the
-Transaction (both in-memory and persistently), as the representation
-of the Read-Set became more compact (a single slot in an object vs
-several objects).
+\subsection{Using B+Trees to hold LogEntries}
 
-The commit time for the various steps of the Transaction also
-improved, as the lookups/insertions of entries in the Read Set are
-done entirely in memory, without the need to traverse (and
-potentially reload a large object graph).
-
-\subsection{Using BPlusTrees to hold LogEntries}
-
-As described in Section \ref{chap:ff}, the Fenix Framework uses
-BPlusTrees and other collections to implement to-many relations. These
-collections are transparently handled by the Framework, and are
-implemented using regular Domain Objects (such as Leaf Nodes and Inner
-Nodes). As keeping track of changes in relations is a requirement for
-our implementation, it is critical that changes to BPlusTrees are
-correctly tracked.
-
-This posed a great issue, as conceptually one
-\texttt{TransactionalContext} has many \texttt{LogEntries} in both its
-Read and Write Sets. If theses relations were to be implemented using
-regular one-to-many relations, a BPlusTree would be generated by the
-Framework. But as BPlusTrees must be tracked by the
-\texttt{TransactionalContext}, they could not be used to implement
-this relation.
-
-The initial approach to this problem consisted on implementing the
-relation using a Linked List, in which a LogEntry would be directly
-connected to the next one in the list, keeping the list sorted by
-insertion order. This approach proved to be quite inefficient, as
-lookups in the Write Set were {\it O(n)} in the number of written
-objects, making it impractical, as every \texttt{getBoxValue}
-operation required potentially traversing the whole list.
+The Fenix Framework uses B+Trees and other collections to implement
+{\it to-many} relations. These collections are transparently handled
+by the Framework, and are implemented using regular Domain Objects. As
+keeping track of changes in relations is a requirement for our
+implementation, it is critical that changes to B+Trees are correctly
+tracked. This meant that in the original implementation, the relations
+between the \texttt{TransactionalContext} and the \texttt{LogEntries}
+representing its Read and Write sets could not be done using a regular
+{\it to-many} relation. As such, in the initial implementation the
+Read and Write Sets were kept in a Linked-List of \texttt{LogEntries},
+with a head pointer in the \texttt{TransactionalContext}.  This
+approach proved to be quite inefficient, as lookups in the Write Set
+were {\it O(n)} in the number of written objects, making it
+impractical, as every \texttt{getBoxValue} operation required
+potentially traversing the whole list.
 
 To solve this issue, a specialised \texttt{WriteSetBPlusTree} was
 developed. The major difference between a \texttt{WriteSetBPlusTree}
 and a regular BPlusTree is that the former is designed to be kept out
 of the scope of the TransactionalContext, making it possible to use it
 to implement the one-to-many relation between a TransactionalContext
-and its LogEntries.
+and its LogEntries. Lookup times are now {\it O(log(n))} on the number
+of written objects.
 
-Another advantage of directly using a BPlusTree is that it is possible
-to take full advantage of all its features. Generically speaking, a
-BPlusTree is a map between keys and values. When the Fenix Framework
-generates a BPlusTree to represent a to-many relation, the map
-contains the pointed objects as values, and the object's identifiers
-(OID) as keys. In this case however, lookups are not performed by OID,
-but by DomainSlotKey (DomainObject+slot). As such, a WriteSetBPlusTree
-will map DomainSlotKeys to their corresponding LogEntries.
-
-With this approach, looking up a DomainSlotKey in a
-TransactionalContext means that the BPlusTree is indexed using the
-DomainSlotKey, and as such, lookup times are now {\it O(log(n))}.
-
-In Figure~\ref{fig:comparisonBPlus} we can
-see that the running time using BPlusTrees is closer to the regular
-version. However, the growth rate (while linear) is still bigger than
-the original, with the benchmark taking on average 4.4x to
-complete. One of the big contributors for this speed improvement seems
-to be the number of Box Reads that happens throughout the
-transaction. Whereas in the original implementation this number
-reached over 8.7B, it is now reduced to about 2.1M.
-
-
+In Figure~\ref{fig:comparisonBPlus} we can see that the running time
+using BPlusTrees is closer to the regular version. However, the growth
+rate (while linear) is still bigger than the original, with the
+benchmark taking on average 4.4x to complete.
 
 \subsection{Removing LogEntries}
 
@@ -2201,8 +2054,6 @@ and was able to track down the reasons for such poor performance. By
 doing several improvements on how the intermediate data is stored and
 search, I was able to accomplish very good performance results,
 providing execution times close to those of regular transactions.
-
-~\\
 
 Overall I believe that this work was rather successful, I was able to
 develop a solution that allows programmers to take advantage of Long
