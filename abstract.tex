@@ -1114,10 +1114,6 @@ Section 2, and thus, a new approach is needed.
 \section{Fenix Framework}
 \label{chap:ff}
 
-``Fenix Framework allows the development of Java-based applications
-that need a {\it transactional and persistent domain
-  model.}''\footnote{\url{http://fenix-framework.github.io}}
-
 This chapter describes in detail the major components of the Fenix
 Framework, which is the Framework used to implement the solution
 proposed throughout this document. Section \ref{sec:dml} describes the
@@ -1185,26 +1181,14 @@ To-many relations in the Fenix Framework have Set semantics, meaning
 that an object can only be present in a relation once. Also, there are
 no ordering guarantees when accessing the relation.
 
-\begin{lstlisting}[caption={DML for the relation between \texttt{Course}
-    and \texttt{Department}},label={list:relation-example}]
-relation DepartmentHasCourses {
-  Department playsRole department {
-    multiplicity 1..1;
-  }
-  Course playsRole course {
-    multiplicity *;
-  }
-}
-\end{lstlisting}
-
-Listing~\ref{list:relation-example} shows how the relation presented
-in Figure~\ref{fig:courseDomain} could be described in the DML. The
-relation is given a name that describes the relationship between the
-two classes, as well as names to describe the role each class takes in
-the relation. The multiplicity is defined for each of the roles, in
-this case, one \texttt{Department} has zero or more \texttt{Courses},
-and one \texttt{Course} has between one and one (exactly one)
-\texttt{Department}.
+Consider the relation between the \texttt{Course} and
+\texttt{Department} classes shown Figure~\ref{fig:courseDomain}. The
+relation would be given a name that describes the relationship between
+the two classes, as well as names to describe the role each class
+takes in the relation. The multiplicity is defined for each of the
+roles, in this case, one \texttt{Department} has zero or more
+\texttt{Courses}, and one \texttt{Course} has between one and one
+(exactly one) \texttt{Department}.
 
 
 From the domain definition, the Fenix Framework generates Java getters
@@ -1450,15 +1434,7 @@ transaction.
 \subsubsection{VBoxes}
 
 A plain JVSTM VBox is simply a wrapper to a Linked-List of pairs
-[Version, Value], containing the history of values for that
-box, as seen in Figure \ref{fig:vbox}.
-
-\begin{figure}
-\centering
-\includegraphics[width=0.5\linewidth]{vbox-list}
-\caption{VBox Structure}
-\label{fig:vbox}
-\end{figure}
+[Version, Value], containing the history of values for that box.
 
 A Fenix Framework VBox however, also contains a back-pointer to its
 owner, as well as the name of the slot it represents. This allows for
