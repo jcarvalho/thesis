@@ -29,7 +29,7 @@
 
 %% Title
 \author{Jo\~{a}o Pedro Carvalho} \institute{T\'{e}cnico de
-  Lisboa/Universidade T\'{e}cnica de Lisboa
+  Lisboa/Universidade T\'{e}cnica de Lisboa\newline
   \email{joao.pedro.carvalho@ist.utl.pt}}
 \maketitle
 
@@ -869,7 +869,7 @@ requirements, and thus, a new approach is needed.
 
 This section briefly describes the Fenix Framework, which is the
 Framework used to implement the solution proposed throughout this
-document. The information presented in this chapter is critical to
+document. The information presented in this section is critical to
 understanding the proposed solution, as well as its challenges.
 
 \subsection{Domain Modelling Language}
@@ -884,33 +884,12 @@ domain definition.
 In a DML file, programmers write their domain definition in a
 Java-like language. A class definition consists of the class name, the
 entity slots (either primitive or value types), and the super
-class. Listing \ref{list:class-example} shows how the \texttt{Course}
-and \texttt{Department} classes from Figure \ref{fig:courseDomain}
-could be described in the DML. Note that as arrays are not natively
-supported, a Value Type must be created, describing an array of
-publications. Value Types are described in more detail below.
-
-\begin{lstlisting}[caption={DML for the \texttt{Course} and 
-  \texttt{Department} classes},
-  label={list:class-example}, float]
-class Course {
-  String name;
-  String objectives;
-  int credits;
-  PublicationList bibliography;
-}
-
-class Department {
-  String name;
-}
-\end{lstlisting}
-
-Relations in DML are named, first-class citizens that represent
-relationships between two classes. Relations are always bi-directional,
-meaning that updating one side of the relation will automatically
-update the other side. Relations can be concealed in one of the sides
-(meaning that it will not be possible to access it), however their
-state is still kept.
+class. Relations in DML are named, first-class citizens that represent
+relationships between two classes. Relations are always
+bi-directional, meaning that updating one side of the relation will
+automatically update the other side. Relations can be concealed in one
+of the sides (meaning that it will not be possible to access it),
+however their state is still kept.
 
 It is possible to define {\it one-to-one}, {\it one-to-many} and {\it
   many-to-many relationships}, and it is possible to define boundaries
@@ -965,14 +944,13 @@ year), a great architectural shift has occurred. There is now a clear
 separation between the Framework's public API and the
 transactional/persistence backends, allowing for a ``write once, run
 everywhere'' paradigm. The programmer simply writes his application
-against a public API and is able to run it on multiple backends.
+against a public API and is able to run it on multiple backends. This
+way, not only are applications portable across several technologies,
+but also testing support is greatly enhanced, as there is no need to
+mock the persistence API, as tests can be run using an in-memory
+backend.
 
-This way, not only are applications portable across several
-technologies (MySQL, Neo4j, Hibernate, etc), but also testing support is
-greatly enhanced, as there is no need to mock the persistence API, as
-tests can be run using an in-memory backend.
-
-The DML Compiler module contains the parser responsible for reading
+The \texttt{DML Compiler} module contains the parser responsible for reading
 DML files and creating an in-memory description of the Domain Model,
 as well as all the necessary classes to represent it. It also contains
 the base \texttt{DomainObject} interface, which all objects of the Domain
@@ -984,45 +962,9 @@ The core of the Framework is in the \texttt{Core API} module. Transaction
 management APIs, configuration, entry points, backend interfaces, are
 all defined in this module.
 
-Many backend-independent modules are provided with the Fenix Framework
-bundle. These include persistent Abstract Data Types (B+Trees, Linked
-Lists, etc), support for Consistency
-Predicates \cite{JoaoCoutinhoNeves2011}, statistics collection tools,
-indexing and transaction introspection. These modules are used
-internally by the various backends, but can (and in most cases should)
-also be used by the programmers.
-
-Backends provide the concrete implementations of transactional and
-persistence support, and are required for applications to work.
-
-\subsubsection{Public API}
-
-One of the major advantages of the Fenix Framework is that
-applications built on top of it are independent of the underlying
-persistence and transactional backend. However, to guarantee this
-property, the modules that form such applications must be compiled
-against the Public API of the Framework.
-
-The public API is split in two major components:
-
-\begin{itemize}
-\item {\bf DML Compiler} Allows applications to have runtime access to
-  the structure of the domain and allows registering relation
-  listeners that will be invoked each time a relation is
-  modified. This module also defines the API that is generated based
-  on the DML, which must be supported by all backends.
-
-\item {\bf Core API} Provides the entry point for the domain's object
-graph through the \texttt{DomainRoot} class, the mechanism to retrieve a
-Domain Object from its unique identifier, transaction APIs that can be
-used to either mark a piece of code as transactional (@Atomic
-annotation) or to manually manage the lifecycle of transactions, and
-utilities to configure the Framework.
-\end{itemize}
-
-With this separation, the classpath of the application modules is not
-polluted with implementation details, allowing for a faster
-development and test cycle.
+The \texttt{DML Compiler} and \texttt{Core API} modules are the Fenix
+Framework's public API, providing everything necessary to the
+development of backend-independent application modules.
 
 \subsubsection{Backends}
 
@@ -1041,16 +983,12 @@ The Java Versioned Software Transactional Memory (JVSTM)
 Software Transactional Memory (see Section~\ref{sec:stm}).  It uses
 the concept of Versioned Boxes (VBoxes) to make a memory location
 transactional, keeping the history of values for that position, one
-for each version of the box.
-
-Each transaction begins at a given moment, acquiring the version
-number at that moment. The version number is used during the
-transaction to ensure that all reads get the correct value at the time
-of the transaction's start, thus providing Opacity guarantees
-\cite{guerraoui2008correctness}. This allows for conflict-free
-read-only transactions, as concurrent transactions writing to the read
-boxes will write a new version instead of overwriting its previous
-value.
+for each version of the box. Each transaction has a version number
+that is used during the transaction to ensure that all reads get the
+correct value at the time of the transaction's star. This allows for
+conflict-free read-only transactions, as concurrent transactions
+writing to the read boxes will write a new version instead of
+overwriting its previous value.
 
 The JVSTM is integrated with the Fenix Framework, as one of the
 multiple available backends. This document focuses on the backend
@@ -1069,8 +1007,6 @@ name of the slot it represents. This allows for the persistence
 support to know where to store the value of the Box.  Those
 specialised VBoxes can have their previous values Garbage-Collected
 and reloaded from persistent support on-demand.
-
-\subsubsection{VBoxes for relations}
 
 In terms of VBoxes, {\it to-one} relations are treated just like any
 other slot, and as such, the reference to the related object is simply
@@ -1097,7 +1033,7 @@ document we are only interested in B+Trees containing domain objects).
 \section{Solution}
 \label{chap:solution}
 
-With a proper understanding of the Fenix Framework, this chapter
+With a proper understanding of the Fenix Framework, this section
 describes the solution proposed to simplify the development of Long
 Lived Transactions. Section~\ref{sec:arch} describes the architecture
 of the proposed solution, with the rationales for each design
@@ -1515,7 +1451,7 @@ every change in the Write Set is available to the outside world.
 \subsection{Validation}
 \label{sec:validation}
 
-This chapter proposed a solution that allows programmers to take
+This section proposed a solution that allows programmers to take
 advantage of Long Lived Transactions with little effort and no code
 modifications. I will now show how the solution fares in each of these
 aspects.
