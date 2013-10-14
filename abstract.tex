@@ -245,7 +245,7 @@ programmer: It should possible to operate directly on the domain.
 Now imagine that the course creation process can span several
 days. Keeping the data in the user's session is not feasible, as the
 system may restart and discard the written information. This means
-that the intermediate data must be manually kept persistently.  A
+that the intermediate data must be manually persisted.  A
 possible solution for this is to change our domain model, by adding a
 new attribute to the objects being modified. The \texttt{status}
 attribute would indicate whether the course is in a consistent state
@@ -695,8 +695,7 @@ regular transaction, we can identify three major pieces: (a) The
 version of the LLT (corresponding to the version of the first step),
 (b) A list of all the items written throughout the transaction (and
 the respective written values) and (c) A list of all elements read
-throughout the transaction. This piece of information is critical to
-ensure the correctness of the operation.
+throughout the transaction.
 
 These pieces are crucial to ensure the correct operation of an
 STM-based transactional system. STM libraries provide them for regular
@@ -896,7 +895,7 @@ Write sets of the parent transaction. (3) The same is done to the Read Set.
 
 Once the nested transaction is committed, the parent
 (backend-specific) transaction will ensure that the updated
-\texttt{TransactionalContext} is stored in persistent support. Note
+Transactional Context is stored in persistent support. Note
 that the only objects written in the parent transaction will be the
 ones representing the context and its \texttt{LogEntries}.
 
@@ -1133,8 +1132,8 @@ the same correctness guarantees as regular transactions as well as
 comparable performance on the execution of the transaction's
 steps. The initial implementation, while fully functional, present
 very poor performance results, rendering even the simplest of test
-cases unusable. I then presented a performance analysis and described
-several optimizations that were applied.
+cases unusable. As such, I presented a performance analysis and
+described several optimizations that were applied.
 
 \bibliography{biblio.bib} \bibliographystyle{plain}
 \end{document}
