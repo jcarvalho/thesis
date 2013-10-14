@@ -76,9 +76,8 @@ Because data persistency is a critical requirement in enterprise
 applications, STMs have been extended to collaborate with persistent
 storage systems, giving birth to the concept of {\it Persistent
   Software Transactional Memory} \cite{fernandes2011strict}. Thus,
-several enterprise applications, such as the FenixEdu\footnote{See
-  \url{http://www.fenixedu.org}} web application, are now using
-PSTMs for transactional support.
+several enterprise applications, such as the FenixEdu web application,
+are now using PSTMs for transactional support.
 
 Long-Lived Transactions (LLTs) were first described in 1981 as ``[..]
 transactions with lifetimes of a few days or
@@ -295,60 +294,6 @@ done in a consistent way.
 A database transaction typically provides the four ACID properties:
 Atomicity, Consistency, Isolation and durability.
 
-\subsubsection{Isolation Levels}
-\label{sec:isolation}
-
-To better understand the desired isolation level of a Long-Lived
-Transaction support system, an analysis of the most common isolation
-levels is in order. Attaining full isolation between transactions,
-while seemingly necessary, can oftentimes be a burden to the DBMS, due
-to the required overhead. Thus, isolation is, out of the four ACID
-properties, the one most often relaxed. In the ANSI/ISO SQL
-standard\cite{melton1992ansi}, four isolation levels have been defined
-(from most to least relaxed):
-
-\begin{itemize}
-\item {\bf Read Uncommitted} This is the lowest isolation level
-  provided by any transaction support system. At this level {\it Dirty
-    reads} may occur. A {\it Dirty read} is defined as a read
-  operation that reads data updated by a live (not yet committed)
-  transaction.
-\item {\bf Read Committed} In this level, {\it Dirty reads} cannot
-  happen (meaning they only read data written by already committed
-  transactions). However, multiple reads to the same data location may
-  read different values (from transactions that committed in between),
-  even within a single transaction.
-\item With {\bf Repeatable Read}, all reads within the same
-  transaction read the snapshot established by the first read.
-\item {\bf Serializable} is the {\it highest} isolation level defined
-  in SQL. Serializability requires repeatable reads, as well as
-  guaranteeing that {\it Phantom reads} do not occur. A {\it Phantom
-    read} occurs when, in the course of a transaction, two identical
-  queries (that act upon a range of values) return a different result
-  collection. This can occur when running queries like ``SELECT * FROM
-  users WHERE age BETWEEN 10 AND 30;''. If an interleaving transaction
-  creates a new user with an age between 10 and 30 years, the second
-  run of the query will show a result which contains the new user.
-\end{itemize}
-
-In \cite{papadimitriou1979serializability}, an extension to
-Serializability is described: Strict Serializability. In addition to
-the requirements for Serializability, Strict Serializability requires
-that transaction histories are real-time ordered, meaning that all
-transactions histories must be ordered in a way consistent with the
-precedence order of the operations. In practice, this isolation level
-is not implemented by DBMSs, due to its performance impact.
-
-Another common isolation level (not described in SQL-92) is {\bf
-  Snapshot Isolation}. In snapshot isolation, all reads made within a
-transaction are guaranteed to see a consistent snapshot of the
-database, and the transaction itself will only commit if no updates it
-has made conflict with any concurrent updates since the
-snapshot. Snapshot isolation arose from work on Multiversion
-Concurrency Control, and thus did not make it into the lock-centered
-mindset of the SQL-92 standard. This gap was heavily criticised in
-\cite{berenson1995critique}.
-
 \subsubsection{Concurrency Control}
 
 Concurrency Control is the mechanism that ensures that ``Concurrent
@@ -361,82 +306,63 @@ shared mutable data. Research on the topic dates back to the 1970s
 \cite{rosenkrantz1978system} and 1980s \cite{gray1981transaction}, and
 is still a hot topic nowadays.
 
-There are two main categories of Concurrency Control:
-
-\begin{itemize}
-
-\item {\bf Optimistic} Delaying integrity checking until the end of
-  the transaction, without blocking any of its reads and writes.
-  Optimistic concurrency control allows for greater concurrency,
-  because concurrent operations can proceed without interfering with
-  each other. On the other hand, given that integrity is only checked
-  at the end of the transaction, conflicts are not detected until all
-  the work is done and the transaction has to be restarted. It is
-  typically implemented by Multiversion Concurrency Control and
-  Timestamp Ordering mechanisms \cite{Bernstein1981}.
-
-\item {\bf Pessimistic} Every data access in the transaction acquires
-  a lock before proceeding. During the acquisition process, if an
-  integrity violation is detected, the transaction is aborted, rolling
-  back every write and releasing every lock held. Once the transaction
-  is finished, it is marked as committed, and all the locks are
-  released. The main method in this category is Two-Phase Locking
-  \cite{Bernstein1981}.
-
-\end{itemize}
-
-Historically, pessimistic concurrency control has been the dominant
-category, and even nowadays, most Relational Databases implement it.
-
-Due to this fact, most of the work regarding Long-Lived Transaction
-support in DBMSs is related with locking approaches. In fact, one of
-the main reasons why databases do not cope well with long
-transactions, is that the transaction holds a lock for each accessed
-record. In lock-based DBMSs, the frequency of deadlock goes up with
-the square of the concurrency level and the fourth power of the
-transaction size \cite{gray1981transaction}. Thus, several strategies
-have been devised to minimize the probability of deadlocks on
-Long-Lived Transactions.
+There are two main categories of Concurrency Control: Optimistic and
+Pessimistic. {\bf Optimistic} consists on delaying integrity checking
+until the end of the transaction, without blocking any of its reads
+and writes.  Optimistic concurrency control allows for greater
+concurrency, because concurrent operations can proceed without
+interfering with each other. On the other hand, given that integrity
+is only checked at the end of the transaction, conflicts are not
+detected until all the work is done and the transaction has to be
+restarted. It is typically implemented by Multiversion Concurrency
+Control and Timestamp Ordering mechanisms \cite{Bernstein1981}. {\bf
+  Pessimistic} Implies that every data access in the transaction
+acquires a lock before proceeding. During the acquisition process, if
+an integrity violation is detected, the transaction is aborted,
+rolling back every write and releasing every lock held. Once the
+transaction is finished, it is marked as committed, and all the locks
+are released. The main method in this category is Two-Phase Locking
+\cite{Bernstein1981}. Historically, pessimistic concurrency control
+has been the dominant category, and even nowadays, most Relational
+Databases implement it. Due to this fact, most of the work regarding
+Long-Lived Transaction support in DBMSs is related with locking
+approaches. In fact, one of the main reasons why databases do not cope
+well with long transactions, is that the transaction holds a lock for
+each accessed record.
 
 \subsubsection{Relaxation of Transactional Properties}
 
 Given that holding the locks for the duration of the transaction was
 not viable, the first proposed solution for this problem was to accept
 a lower degree of consistency, by allowing transactions to release
-their locks before commit.
-
-In \cite{gray1981transaction}, the author proposed a model in which
-only {\it active} transactions (the ones currently updating the
-database) hold locks. {\it Sleeping} transactions (not currently
-updating the database - also known as {\it User Think-Time}) do not
-hold any locks. This means that the isolation property is broken, due
-to the fact that other transactions will be able to see an uncommitted
-value.
+their locks before commit. In \cite{gray1981transaction}, the author
+proposed a model in which only {\it active} transactions (the ones
+currently updating the database) hold locks. {\it Sleeping}
+transactions (not currently updating the database - also known as {\it
+  User Think-Time}) do not hold any locks. This means that the
+isolation property is broken, due to the fact that other transactions
+will be able to see an uncommitted value.
 
 In \cite{salem1989altruistic}, the authors propose an extension to
 Two-Phase locking, called {\it altruistic locking}. This extension
 provides the concurrency control manager with a set of rules that
 allow it to release locks early in the transaction. The altruistic
-protocol takes advantage of the transaction's data access pattern. In
-particular, it takes advantage of the knowledge that a transaction no
-longer needs access to a data object that it has locked. Transactions
-can then issue {\it release} operations, indicating that a certain
-piece of data will no longer be accessed. Other transactions will be
-allowed to access this data concurrently, while agreeing to abide by
-certain restrictions that were put in place to ensure that all
-transactions see a consistent database state.
+protocol takes advantage of the knowledge that a transaction no longer
+needs access to a data object that it has locked. Transactions can
+then issue {\it release} operations, indicating that a certain piece
+of data will no longer be accessed. Other transactions will be allowed
+to access this data concurrently, while agreeing to abide by certain
+restrictions that were put in place to ensure that all transactions
+see a consistent database state.
 
 \subsubsection{Transaction Logs}
 
-Another problem with Long-Lived Transactions in DBMSs results from the
-use of a Transaction Log, which contains a record of every operation
-performed in the database, so that the DBMS can perform crash
-recovery. The problem is that the size of that log is finite and, over
-time, it fills up, thus forcing Long-Lived Transactions to abort, as
-some of their log records will be overwritten by more recent
-transactions.
-
-In \cite{hagmann1991implementing}, the authors propose ``Log Record
+Typical DBMSs keep a Transaction Log, keeping a record of every
+operation, so that crash recovery can be performed. The problem is
+that the size of that log is finite and, over time, it fills up, thus
+forcing Long-Lived Transactions to abort, as some of their log records
+will be overwritten by more recent transactions. In
+\cite{hagmann1991implementing}, the authors propose ``Log Record
 Forwarding'', as a means to relocate log entries belonging to
 Long-Lived Transactions, so that they will not be aborted for that
 reason. In this proposal, active records in the log area are copied
@@ -446,22 +372,21 @@ log-reclaiming cycle.
 \subsubsection{Sagas}
 \label{sec:sagas}
 
-Garcia-Molina and K. Salem proposed, in their 1987 paper
-\cite{garcia1987sagas}, the notion of sagas. The basic idea of the
-saga model is to allow a transaction to release resources prior to
-committing. A Long-Lived Transaction is a saga if it can be seen as a
-sequence of sub-transactions that can be interleaved in any way with
-other transactions. Each sub-transaction in the saga guarantees that
-the ACID properties on the database are preserved.
-
-Partial executions of the saga are undesirable, so the DBMS is
-responsible for guaranteeing that either all transactions in a saga
-are successfully completed, or compensation actions are run to amend
-the partial execution. Thus, each sub-transaction is associated with a
-compensating transaction, which undoes the changes performed by the
-original transaction. Note that this action does not necessarily
-return the database to its original state, but instead acts upon the
-{\it business state} of the application.
+Garcia-Molina and K. Salem proposed the notion of sagas
+\cite{garcia1987sagas}. The basic idea of the saga model is to allow a
+transaction to release resources prior to committing. A Long-Lived
+Transaction is a saga if it can be seen as a sequence of
+sub-transactions that can be interleaved in any way with other
+transactions. Each sub-transaction in the saga guarantees that the
+ACID properties on the database are preserved. Partial executions of
+the saga are undesirable, so the DBMS is responsible for guaranteeing
+that either all transactions in a saga are successfully completed, or
+compensation actions are run to amend the partial execution. Thus,
+each sub-transaction is associated with a compensating transaction,
+which undoes the changes performed by the original transaction. Note
+that this action does not necessarily return the database to its
+original state, but instead acts upon the {\it business state} of the
+application.
 
 \subsubsection{Offline Concurrency Patterns}
 
@@ -500,11 +425,10 @@ step of the process follows the precedent, and ends just before the
 next step can begin. A Workflow Process typically may have a long
 duration and involve many users. It should be clear that a Workflow
 Process presents many similarities with a Long Lived Transaction, and
-as such, may be a suitable solution to implement them.
-
-However, Workflow Processes are not concerned with the ACID properties
-in the same way as DBMSs. Instead, they let the intermediate state of
-the ongoing processes be visible to the outside world, and rely on
+as such, may be a suitable solution to implement them. However,
+Workflow Processes are not concerned with the ACID properties in the
+same way as DBMSs. Instead, they let the intermediate state of the
+ongoing processes be visible to the outside world, and rely on
 compensatory actions to be executed in case a process fails and has to
 be rolled back. This isolation breach is not acceptable for the
 problem at hand, and as such, Workflow Management Systems are not
@@ -533,28 +457,24 @@ the domain objects (in memory), delaying the propagation of the
 changes to the database as much as possible. As part of the JPA, there
 is the concept of Version field. This field allows {\it disconnected
   operation}, meaning that the reads/writes from the database are
-deferred until a checkpoint or the end of transaction. When using this
-optimistic approach, all the versions of the objects used in the
-transaction are checked against the version present in the database,
-thus ensuring that no dirty reads will occur.
+deferred until a checkpoint or the end of transaction.
 
 Hibernate supports the concept of {\it Long Conversations} by allowing
 a session to remain open as long as the user interaction lasts,
 potentially executing multiple database transactions. However, the
 programmer is responsible for ensuring the atomicity and isolation of
 the business transaction, by following a very strict pattern: All
-transactions but the last must only read data, and, thus only the last
-database transaction can update data. Hibernate assists the programmer
-in verifying that the data read across the multiple transactions is
-consistent, using an object versioning mechanism. However, this
-verification only works if all the data required for the application
-is read within the first database transaction. It should be clear that
-this support is far from our requirements. It imposes a pattern that
-may not be suited for many applications.  All the state of the
-transaction is kept in memory, which may cause the application to run
-out of memory in very large transactions. Despite the versioning
-support, the business transaction may still suffer from inconsistent
-reads, as it spans multiple isolated database transactions.
+transactions but the last must only read data. Hibernate assists the
+programmer in verifying that the data read across the multiple
+transactions is consistent, using an object versioning
+mechanism. This, however, requires that all data be read in the first
+transaction. This support is far from our requirements as it imposes a
+pattern that may not be suited for many applications.  All the state
+of the transaction is kept in memory, which may cause the application
+to run out of memory in very large transactions. Despite the
+versioning support, the business transaction may still suffer from
+inconsistent reads, as it spans multiple isolated database
+transactions.
 
 
 \subsection{Software Transactional Memories}
@@ -564,91 +484,72 @@ The original idea behind Transactional Memories (TM)
 \cite{herlihy1993transactional} is to provide efficient lock-free data
 structures for highly concurrent systems using hardware. Its main goal
 was to free programmers from using locks and monitors to manage
-concurrent accesses to shared data. Managing lock granularity and
-composability is a cumbersome and error-prone task, and may lead to
-unwanted situations such as deadlocks. Over the years, the original
+concurrent accesses to shared data. Over the years, the original
 concept of Hardware Transactional Memories has evolved, giving birth
-to Software Transactional Memories \cite{shavit1997software}.
-
-Software Transactional Memories bring into the realm of programming
-languages, the age-old notion of transactions, well-known in the area
-of DBMSs. However, unlike those, STMs are not concerned with the
-Durability property of the ACID model, and thus, many STM
-implementations have little in common with their database
-counterparts. There have been several recent proposals for STM
-implementations, such as those described in
-\cite{cachopo2006versioned, herlihy2003software, marathe2005adaptive,
-  dice2006transactional, riegel2006lazy, marathe2006lowering}.
+to Software Transactional Memories \cite{shavit1997software}. STMs
+bring into the realm of programming languages, the age-old notion of
+transactions, well-known in the area of DBMSs. However, unlike those,
+STMs are not concerned with the Durability property of the ACID model,
+and thus, many STM implementations have little in common with their
+database counterparts. There have been several recent proposals for
+STM implementations, such as those described in
+\cite{cachopo2006versioned, herlihy2003software,
+  dice2006transactional}.
 
 STMs use transactions to isolate memory operations in atomic Units of
 Work. A transaction typically contains a Read Set and a Write Set,
 which are used to register its read and write operations,
 respectively. The STM provides a series of mutable memory locations
-that can be read from or written to. In many STMs, it is up to the
-programmer to confine all of the application's mutable state to these
-memory locations, whereas some STMs provide fully transactional
-memory. It is the responsibility of the STM to guarantee that
-concurrent accesses to such memory locations are correct according to
-the specified correctness criteria. In particular, in
-\cite{guerraoui2008correctness}, an {\it Opacity} correctness criteria
-is defined for STMs.
-
-\subsubsection{Nested Transactions}
+that can be read from or written to. It is the responsibility of the
+STM to guarantee that concurrent accesses to such memory locations are
+correct according to the specified correctness criteria. In
+particular, in \cite{guerraoui2008correctness}, an {\it Opacity}
+correctness criteria is defined for STMs.
 
 The best practices in software development encourage programmers to
 modularize their applications and have them abide by well-defined
 interfaces. Lock-based approaches do not cope well with this
 principle, because the programmer must be aware of module's internal
-locking conventions. Transactions, on the other hand, do not have this
-limitation, allowing for better composability. In the transaction
-paradigm, it would then be common for application code to make a call
-to a library that uses transactions to protect its shared internal
-state. In this scenario, the transaction created by the library would
-be {\it nested} in the outer (application-owned) transaction. Nested
-Transactions are an extension to the basic transaction structure,
-supporting multiple levels of transactions: Transactions that may
-contain other sub-transactions, forming a transaction tree. Nested
-Transactions have long been used in the database world, and many of
-its concepts have been adapted to transactional memories. Consider the
-kind of monolithic transactions commonly found in enterprise
-applications. In such transactions, the volume of work that must be
-done if the transaction needs to be rolled-back is increased. Using
-nested transactions, smaller portions of the work can be done in
-isolation, each within a nested transaction. If one of those portions
-fails, only that portion needs to be rolled-back, and an attempt can
-be made to compensate for that failure. Similarly, clients of opaque
-libraries may suffer performance hits if the transaction fails because
-of the work performed in said libraries.
+locking conventions. In the transaction paradigm, it would then be
+common for application code to make a call to a library that uses
+transactions to protect its shared internal state. In this scenario,
+the transaction created by the library would be {\it nested} in the
+outer (application-owned) transaction. Nested Transactions are an
+extension to the basic transaction structure, supporting multiple
+levels of transactions: Transactions that may contain other
+sub-transactions, forming a transaction tree. Nested Transactions have
+long been used in the database world, and many of its concepts have
+been adapted to transactional memories. Consider the kind of
+monolithic transactions commonly found in enterprise applications. In
+such transactions, the volume of work that must be done if the
+transaction needs to be rolled-back is increased. Using nested
+transactions, smaller portions of the work can be done in isolation,
+each within a nested transaction. If one of those portions fails, only
+that portion needs to be rolled-back, and an attempt can be made to
+compensate for that failure. Nested Transactions present many
+similarities with Long-Lived Transactions. In both cases there is a
+top-level transaction, which can be divided in several smaller steps.
 
-Nested Transactions present many similarities with Long-Lived
-Transactions. In both cases there is a top-level transaction, which
-can be divided in several smaller steps.
+In \cite{fernandes2011strict}, the authors argue that keeping the
+transaction management in the database, while once justified by
+hardware limitations, is no longer suited for today modern
+applications. A new architecture was proposed, using a STM for
+transaction support at the application server tier. The database still
+plays an important role in this architecture, due to the fact that the
+STM must be extended to support persistence (PSTMs).  By shifting the
+responsibility for transaction handling to the STM, enterprise
+applications can benefit from the many advancements in the STM area,
+such as multi-core machine scaling, stronger correctness guarantees
+and nonblocking progress conditions such as lock freedom.  Using a
+PSTM, enterprise application developers no longer have to trade
+correctness for performance.
 
-\subsection{Persistent STMs}
-\label{sec:pstm}
-
-Nowadays, enterprise applications still rely on a relational database
-to handle both data persistence and transactional support. In
-\cite{fernandes2011strict}, the authors argue that such design, while
-once justified by hardware limitations, is no longer suited for today
-modern applications. A new architecture was proposed, using a STM for
-transaction support at the application server tier, shifting the
-responsibility from the DBMS to the application server. The database
-still plays an important role in this architecture, due to the fact
-that the STM must be extended to support persistence (PSTMs).  By
-shifting the responsibility for transaction handling to the STM,
-enterprise applications can benefit from the many advancements in the
-STM area, such as multi-core machine scaling, stronger correctness
-guarantees and nonblocking progress conditions such as lock freedom.
-Using a PSTM, enterprise application developers no longer have to
-trade correctness for performance.
-
-Another advantage of PSTMs is that, like in STMs, the programmer
-benefits from a much simpler and transparent programming model,
-allowing for much cleaner and maintainable code, better composability
-by using lock-free data structures, making the process of translating
-business requirements to code much simpler and bug-free. This work
-aims at extending the PSTM model with Long Lived Transaction support.
+Another advantage of PSTMs is that, the programmer benefits from a
+much simpler and transparent programming model, allowing for much
+cleaner and maintainable code, better composability, making the
+process of translating business requirements to code much simpler and
+bug-free. This work aims at extending the PSTM model with Long Lived
+Transaction support.
 
 %% FF
 
