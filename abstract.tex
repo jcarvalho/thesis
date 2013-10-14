@@ -36,22 +36,25 @@
 %% Abstract
 
 \begin{abstract}
-
 Over the past years, Software Transactional Memories have become more
 and more popular, growing to be something more than simply a research
 topic. On top of that, the concept has been extended to encompass
 persistence, so the concept of Persistent Software Transactional
 Memories (PSTM) was born. In this dissertation, I propose an extension
-to PSTMs to support Long-Lived Transactions. My thesis is that
-supporting Long-Lived Transactions should be done at the
-infrastructural level on top of a Persistent STM.
+to PSTMs to support Long Lived Transactions. Long Lived Transactions
+are transactions with a lifespan larger than a typical transaction,
+executed in multiple disjoint steps. Current Transaction Support
+Systems do not cope well with Long Lived Transactions, forcing
+programmers to devise clever ways to implement them.
 
-I will describe the challenges that make Long Lived Transactions hard
-to implement, and propose a solution to address them. I will show how
-programmers can take advantage of Long Lived Transactions that can
-survive application restarts, require minimal code modifications,
-allow multiple concurrent users and show minimal overhead in relation
-to regular transactions.
+My thesis is that supporting Long Lived Transactions should be done at
+the infrastructural level on top of a Persistent STM.  I will describe
+the challenges that make Long Lived Transactions hard to implement,
+and propose a solution to address them. I show how programmers can
+take advantage of Long Lived Transactions that can survive application
+restarts, require minimal code modifications, allow multiple
+concurrent users and show minimal overhead in relation to regular
+transactions.
 \end{abstract}
 
 %% Intro
@@ -1387,13 +1390,8 @@ performance results, rendering even the simplest of test cases
 unusable. I then presented an in-depth analysis of the implementation,
 and was able to track down the reasons for such poor performance. By
 doing several improvements on how the intermediate data is stored and
-search, I was able to accomplish very good performance results,
+searched, I was able to accomplish very good performance results,
 providing execution times close to those of regular transactions.
-
-Overall I believe that this work was rather successful, I was able to
-develop a solution that allows programmers to take advantage of Long
-Lived Transactions with minimal modifications to existing code, which
-was the primary goal of this dissertation.
 
 \bibliography{biblio.bib} \bibliographystyle{plain}
 \end{document}

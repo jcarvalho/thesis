@@ -159,7 +159,28 @@ perserverance were crutial in completing this work.
 \chapter*{Resumo}
 \thispagestyle{empty}
 
-resumo
+Ao longo dos últimos anos, Memória Transacional tornou-se um tópico
+bastante popular, crescendo além de um mero tópico de investigação.
+Mais recentemente, o conceito foi extendido para suportar
+persistência, e como tal, o conceito de Memória Transacional
+Persistente (PSTM) foi criado. Nesta dissertação irei propor uma
+extensão às PSTMs para suportar Transacções de Longa Duração. Uma
+Transacção de Longa Duração é uma Transação com um tempo de vida
+superior a uma Transacção simples, executada em vários passos
+disjuntos. Os sistemas de suporte transacional existentes hoje em dia
+não estão preparados para lidar com Transacções de Longa Duração, e
+como tal, os programadores de aplicações empresariais vêm-se forçados
+a utilizar {\it workarounds} para as implementar.
+
+A minha tese é que o suporte a Transações de Longa Duração deveria ser
+feito a nivel infra-estrutural, por cima de uma Memória Transacional
+Persistente. Irei descrever os desafios que tornam as Transacções de
+Longa Duração difíceis de implementar, e irei propor uma solução para
+facilitar o seu desenvolvimento. Irei mostrar como os programadores
+podem tirar partido de Transacções de Longa Duração que sobrevivem a
+{\it restarts} do sistema, requerem modificações de código mínimas,
+permitem vários utilizadores concorrentemente e com resultados de
+performance comparáveis às transacções simples.
 
 \newpage
 \thispagestyle{empty}
@@ -172,16 +193,20 @@ and more popular, growing to be something more than simply a research
 topic. On top of that, the concept has been extended to encompass
 persistence, so the concept of Persistent Software Transactional
 Memories (PSTM) was born. In this dissertation, I propose an extension
-to PSTMs to support Long-Lived Transactions. My thesis is that
-supporting Long-Lived Transactions should be done at the
-infrastructural level on top of a Persistent STM.
+to PSTMs to support Long Lived Transactions. Long Lived Transactions
+are transactions with a lifespan larger than a typical transaction,
+executed in multiple disjoint steps. Current Transaction Support
+Systems do not cope well with Long Lived Transactions, forcing
+programmers to devise clever ways to implement them.
 
-I will describe the challenges that make Long Lived Transactions hard
-to implement, and propose a solution to address them. I will show how
-programmers can take advantage of Long Lived Transactions that can
-survive application restarts, require minimal code modifications,
-allow multiple concurrent users and show minimal overhead in relation
-to regular transactions.
+My thesis is that supporting Long Lived Transactions should be done at
+the infrastructural level on top of a Persistent STM.  I will describe
+the challenges that make Long Lived Transactions hard to implement,
+and propose a solution to address them. I show how programmers can
+take advantage of Long Lived Transactions that can survive application
+restarts, require minimal code modifications, allow multiple
+concurrent users and show minimal overhead in relation to regular
+transactions.
 
 
 \newpage

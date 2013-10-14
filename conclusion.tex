@@ -27,12 +27,12 @@ transaction's steps.
 Throughout this document I presented a description of Long Lived
 Transactions, explained why they are difficult to implement using the
 currently available tools and shown several approaches programmers use
-to implement their requirements on top short-lived transactions. I
+to implement their requirements on top of short-lived transactions. I
 presented previous work on Database Transactions, Long Lived
-Transactions, Workflow Management Systems and Software
-Transactional Memories, in an effort to understand the current
-solutions. I also demonstrated that the currently existing solutions
-are unfit to the problem I was trying to solve.
+Transactions, Workflow Management Systems and Software Transactional
+Memories, in an effort to understand the current solutions. I also
+demonstrated that the currently existing solutions are unfit to the
+problem I was trying to solve.
 
 ~\\
 
@@ -49,7 +49,7 @@ performance results, rendering even the simplest of test cases
 unusable. I then presented an in-depth analysis of the implementation,
 and was able to track down the reasons for such poor performance. By
 doing several improvements on how the intermediate data is stored and
-search, I was able to accomplish very good performance results,
+searched, I was able to accomplish very good performance results,
 providing execution times close to those of regular transactions.
 
 ~\\
@@ -61,13 +61,6 @@ the outcome of the transaction is not affected by reading outdated
 values. Due to the duration of a Long Lived Transaction, the
 probability of conflicts is much larger than with regular
 transactions. This can be a problem, as a large amount of work can be
-lost if a Long Lived Transaction is aborted. Solving this limitation
-is out of the scope of this work, nevertheless, I presented some ideas
-for future improvements for this issue.
-
-~\\
-
-Overall I believe that this work was rather successful, I was able to
-develop a solution that allows programmers to take advantage of Long
-Lived Transactions with minimal modifications to existing code, which
-was the primary goal of this dissertation.
+lost if a Long Lived Transaction is aborted. Even though solving this
+limitation is out of the scope of this work, I presented some ideas
+that could address this issue.
