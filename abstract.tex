@@ -230,59 +230,48 @@ possible approaches available:
 Given that atomicity and isolation are broken due to the fact that
 each interaction with the user is done within its own database
 transaction, we could think that the solution would be to keep the
-database transaction open during the whole business transaction.
-
-However, most modern Relational Database Management Systems (RDBMSs)
-do not cope well with transactions that are open for arbitrarily large
-periods of time, because a long lived database transaction may limit
-concurrency, cause timeouts and deadlocks or starve the database's
-connection pool. All these factors contribute to making this approach
-highly undesirable, making the programmer seek alternative approaches.
+database transaction open during the whole business
+transaction. However, most modern Relational Database Management
+Systems (RDBMSs) do not cope well with transactions that are open for
+arbitrarily large periods of time, because a long lived database
+transaction may limit concurrency, cause timeouts and deadlocks or
+starve the database's connection pool. All these factors contribute to
+making this approach highly undesirable, making the programmer seek
+alternative approaches.
 
 \subsubsection{Parallel Representation of the domain}
 
 In this approach, a series of objects similar to the domain objects
 are created, and must be managed manually, kept in the user's session
-context, outside the domain.
-
-As the complexity of the domain and the number of objects manipulated
-by the operation grows, it becomes harder for the programmer to manage
-manually all of the data that must be kept. Ultimately, there is a
-copy of the whole domain stored in the user's session, waiting for the
-last transaction to update the domain with all the information entered
-by the user.
-
-This is the opposite of what would be desirable for the programmer:
-She should be able to operate directly on the domain.
+context, outside the domain. As the complexity of the domain and the
+number of objects manipulated by the operation grows, it becomes
+harder for the programmer to manage manually all of the data that must
+be kept. Ultimately, there is a copy of the whole domain stored in the
+user's session, waiting for the last transaction to update the domain
+with all the information entered by the user. This is the opposite of
+what would be desirable for the programmer: She should be able to
+operate directly on the domain.
 
 \subsubsection{Changing the domain model}
 
 Now imagine that an additional requirement is added to the system: The
 user may be allowed to log off in the middle of the process, and, upon
-logging back in, continue the work where she left off. Additionally,
-anyone else in the user's department should be able to pick up where
-the original user left off. With these requirements, it becomes clear
-that simply storing a copy of the domain in session-local storage is
-not enough.
-
-Web application containers already provide an application context,
-which could potentially solve this issue. Unfortunately, there are no
-real guarantees that the data stored in that context will be kept for
-an arbitrarily large period of time (recall that our transaction may
-span several days or weeks), meaning that the intermediate data must
-be kept persistently, forcing the programmer to be concerned with this
-issue.
-
-A possible solution for this requirement is to change our domain
-model, by adding a new attribute to the objects being modified (in
-this case, \texttt{Course}). The \texttt{status} attribute
-indicates whether the course is in a consistent state
-(\texttt{Published}) or not (\texttt{Draft}). Adding this attribute
-has a cost: Not only the domain becomes polluted with information that
-is not relevant to the object being modeled, but this solution affects
-other functional code across the application (e.g., course listings
-must filter out courses that are still in the \texttt{Draft} status),
-scattering the filtering code throughout the application.
+logging back in, continue the work where she left off. With this
+requirement, it becomes clear that simply storing a copy of the domain
+in session-local storage is not enough. Application context storage is
+not enough either, just like session-local storage, there are no
+guarantees that the data will survive system restarts, meaning that
+the intermediate data must be manually kept persistently.  A possible
+solution for this requirement is to change our domain model, by adding
+a new attribute to the objects being modified (in this case,
+\texttt{Course}). The \texttt{status} attribute indicates whether the
+course is in a consistent state (\texttt{Published}) or not
+(\texttt{Draft}). Adding this attribute has a cost: Not only the
+domain becomes polluted with information that is not relevant to the
+object being modeled, but this solution affects other functional code
+across the application (e.g., course listings must filter out courses
+that are still in the \texttt{Draft} status), scattering the filtering
+code throughout the application.
 
 \subsection{Objectives}
 
@@ -493,14 +482,6 @@ original transaction. Note that this action does not necessarily
 return the database to its original state, but instead acts upon the
 {\it business state} of the application.
 
-More formally, consider a saga $T$, consisting of sub-transactions
-$T_1, T_2, \ldots, T_n$, and compensating actions $CT_1, CT_2, \ldots,
-CT_n$. The system guarantees that either the sequence $T_1, T_2,
-\ldots, T_n$ is executed (meaning the whole saga is executed), or
-$T_1, T_2, \ldots, T_j,CT_j, \ldots, CT_2, CT_1$ for some $0 \le j \le
-n$, will be executed (meaning that a failure occurred at $T_{j+1}$,
-causing the previously executed sub-transactions to be compensated).
-
 \subsubsection{Offline Concurrency Patterns}
 
 Martin Fowler, in his book {\it Patterns of Enterprise Application
@@ -575,12 +556,6 @@ and range across a variety of heterogeneous systems. Individual
 activities range from computer programs and applications to human
 activities such as meetings and decision making.
 
-Over the years, many Workflow Modelling Languages have been devised,
-and in fact, it is still a very active area of research. Examples of
-such languages are YAWL \cite{van2005yawl}, AWGL
-\cite{fahringer2005specification} and UEML \cite{vernadat2002ueml},
-among many others.
-
 In \cite{sheth1993transactional}, the term {\it Transactional
   Workflow} was introduced, recognising the relevance of transactions
 to workflows. Transactional Workflows provide functionality required
@@ -599,8 +574,6 @@ and failure handling is lacking, unlike regular transaction systems,
 so WFMSs typically provide the means for the user to determine the
 actions necessary to recover from failure and consistency issues.
 
-\subsubsection{Implementing Transactional Workflows}
-
 In \cite{dayal1990organizing}, a workflow is seen as a {\it
   Long-Running Activity}, and is modeled as a set of execution units
 that may consist recursively of other activities, or top-level
@@ -608,43 +581,9 @@ transactions. Control and data flow is specified either statically in
 the activity's {\it script}, or dynamically using
 Event-Condition-Action (ECA) rules. This model contemplates
 compensation, execution unit communication, activity status queries
-and exception handling.
-
-\subsubsection{Sagas}
-
-The concept of Sagas was previously presented in
-Section~\ref{sec:sagas}. In this section, I show how sagas can be
-implemented on top of Workflow Management Systems.
-
-All the sub-transactions of the saga are grouped into a block (Forward
-Block). The control flow within the block represents that of the saga,
-with each sub-transaction represented as an activity. Every activity
-has an incoming transition condition, which is that the previous
-activity has finished successfully (i.e. the corresponding transaction
-has committed).
-
-If a transaction aborts, the corresponding outgoing condition will
-evaluate to false, and no other activity in the block will
-execute. When execution of the block terminates, its data container
-will contain a list of the status of each activity. In this case,
-control is passed to a second block (Compensation Block), containing
-the compensating activities in reverse order.
-
-When the compensation block is executed, all the conditions that
-correspond to activities that executed in the Forward Block are
-activated, causing the compensating activities to be executed in
-order.
-
-\subsubsection{Implementing Long-Lived Transactions using WFMSs}
-
-As described in the previous sections, several attempts have been made
-to implement Advanced Transaction Models on top of Workflow Systems,
-as a means of supporting Long-Lived Transactions.
-
-Several other methods have been proposed in the literature (e.g.,
-\cite{alonso1996advanced, 798492}). However, such implementations are
-not suitable for the requirements defined in Section~\ref{sec:what},
-due to the fact that most WFMSs do not provide full ACID properties.
+and exception handling.  However, such implementations are not
+suitable for the requirements defined in Section~\ref{sec:what}, due
+to the fact that most WFMSs do not provide full ACID properties.
 
 \subsection{Object-Relational Mapping}
 \label{sec:orm}
@@ -697,33 +636,23 @@ consistent, using an object versioning mechanism. However, this
 verification only works if all the data required for the application
 is read within the first database transaction.
 
-This support is not good enough for several reasons:
+It should be clear that this support is far from our requirements. It
+imposes a pattern that may not be suited for many applications.  All
+the state of the transaction is kept in memory, which may cause the
+application to run out of memory in very large transactions. Despite
+the versioning support, the business transaction may still suffer from
+inconsistent reads, as it spans multiple isolated database
+transactions. Suppose that in a database transaction (T2) other than
+the first one (T1), the application reads an object for the first
+time. If the object was concurrently modified by yet another
+transaction (T3) that occurred between T1 and T2, T2 would see the
+value written by T3, which would not be consistent. As such, these
+transactions are not {\it Serializable} (See Section
+\ref{sec:isolation}).
 
-\begin{itemize}
-\item It imposes a pattern that may not be suited for many
-  applications.
-\item All the state of the transaction is kept in memory, which may
-  cause the application to run out of memory in very large
-  transactions.
-\item The session is not kept persistent. If the application server
-  restarts in the middle of the transaction, all data related to the
-  ongoing Long Conversation is lost.
-\item Despite the versioning support, the business transaction may
-  still suffer from inconsistent reads, as it spans multiple isolated
-  database transactions. Suppose that in a database transaction (T2)
-  other than the first one (T1), the application reads an object for
-  the first time. If the object was concurrently modified by yet
-  another transaction (T3) that occurred between T1 and T2, T2 would
-  see the value written by T3, which would not be consistent. As such,
-  these transactions are not {\it Serializable} (See Section \ref{sec:isolation}).
-\end{itemize}
 
 \subsection{Software Transactional Memories}
 \label{sec:stm}
-
-Given that the solution I propose in Section \ref{sec:arch} is built
-upon a Software Transactional Memory (STM), I provide here a brief
-introduction to the topic.
 
 The original idea behind Transactional Memories (TM)
 \cite{herlihy1993transactional} is to provide efficient lock-free data
@@ -740,12 +669,10 @@ languages, the age-old notion of transactions, well-known in the area
 of DBMSs. However, unlike those, STMs are not concerned with the
 Durability property of the ACID model, and thus, many STM
 implementations have little in common with their database
-counterparts.
-
-There have been several recent proposals for STM implementations, such
-as those described in \cite{cachopo2006versioned, herlihy2003software,
-  marathe2005adaptive, dice2006transactional, riegel2006lazy,
-  marathe2006lowering}.
+counterparts. There have been several recent proposals for STM
+implementations, such as those described in
+\cite{cachopo2006versioned, herlihy2003software, marathe2005adaptive,
+  dice2006transactional, riegel2006lazy, marathe2006lowering}.
 
 STMs use transactions to isolate memory operations in atomic Units of
 Work. A transaction typically contains a Read Set and a Write Set,
@@ -794,17 +721,16 @@ transaction structure, supporting multiple levels of transactions:
 Transactions that may contain other sub-transactions, forming a
 transaction tree. Nested Transactions have long been used in the
 database world, and many of its concepts have been adapted to
-transactional memories.
-
-Consider the kind of monolithic transactions commonly found in
-enterprise applications. In such transactions, the volume of work that
-must be done if the transaction needs to be rolled-back is
-increased. Using nested transactions, smaller portions of the work can
-be done in isolation, each within a nested transaction. If one of
-those portions fails, only that portion needs to be rolled-back, and
-an attempt can be made to compensate for that failure. Similarly,
-clients of opaque libraries may suffer performance hits if the
-transaction fails because of the work performed in said libraries.
+transactional memories. Consider the kind of monolithic transactions
+commonly found in enterprise applications. In such transactions, the
+volume of work that must be done if the transaction needs to be
+rolled-back is increased. Using nested transactions, smaller portions
+of the work can be done in isolation, each within a nested
+transaction. If one of those portions fails, only that portion needs
+to be rolled-back, and an attempt can be made to compensate for that
+failure. Similarly, clients of opaque libraries may suffer performance
+hits if the transaction fails because of the work performed in said
+libraries.
 
 Nested Transactions present many similarities with Long-Lived
 Transactions. In both cases there is a top-level transaction, which
@@ -813,24 +739,19 @@ can be divided in several smaller steps.
 \subsection{Persistent STMs}
 \label{sec:pstm}
 
-Over the years, Enterprise Application architecture has evolved at a
-very fast pace. However, one aspect has remained constant: They still
-rely on a relational database to handle both data persistence and
-transactional support. In \cite{fernandes2011strict}, the authors
-argue that such design, while once justified by hardware limitations,
-is no longer suited for today modern applications.
-
-A new architecture was proposed, using a Software Transactional Memory
-for transaction support at the application server tier, shifting the
+Nowadays, enterprise applications still rely on a relational database
+to handle both data persistence and transactional support. In
+\cite{fernandes2011strict}, the authors argue that such design, while
+once justified by hardware limitations, is no longer suited for today
+modern applications. A new architecture was proposed, using a STM for
+transaction support at the application server tier, shifting the
 responsibility from the DBMS to the application server. The database
 still plays an important role in this architecture, due to the fact
-that the STM must be extended to support persistence (PSTMs).
-
-By shifting the responsibility for transaction handling to the STM,
+that the STM must be extended to support persistence (PSTMs).  By
+shifting the responsibility for transaction handling to the STM,
 enterprise applications can benefit from the many advancements in the
 STM area, such as multi-core machine scaling, stronger correctness
-guarantees and nonblocking progress conditions such as lock freedom
-\cite{fernandes2011lock}.
+guarantees and nonblocking progress conditions such as lock freedom.
 
 Using a PSTM, enterprise application developers no longer have to
 trade correctness for performance. Modern PSTM implementations allow
@@ -1462,24 +1383,19 @@ One of the greatest challenges when implementing Long Lived
 Transactions is ensuring that the solution provides the same
 correctness guarantees as regular transactions. Transactions in the
 JVSTM satisfy the Opacity correctness properties (refer to
-Section~\ref{sec:opacity}). When integrated with the Fenix Framework,
-transactions may also provide the Durability property, depending on
-whether the concrete backend supports persistence. The proposed
-solution also all the ACID properties for Long Lived Transactions, as
-well as the Opacity correctness property.
+Section~\ref{sec:opacity}). The proposed solution provides all the
+ACID properties for Long Lived Transactions, as well as the Opacity
+correctness property.
 
 Throughout the execution of the Long Lived Transaction, written data
-is collected and stored inside the \texttt{TransactionalContext}. Once
+is collected and stored inside the \texttt{Transactional Context}. Once
 the transaction is finished, written data is {\bf atomically} written
 to the global context, using a regular transaction which simply reads
-data from one domain object (the context) to be written in another
-(the actual objects written during the transaction).
-
-Long Lived Transactions are {\bf consistent}. Similarly to regular
-transactions, a LLT only commits if all the data read during the
-transaction is still valid at commit time. This is done by comparing
-the version of the LLT against the version of every box in the Read
-Set, just like a regular transaction would do.
+data from one domain object to be written in another.  Long Lived
+Transactions are {\bf consistent}. Similarly to regular transactions,
+a LLT only commits if all the data read during the transaction is
+still valid at commit time, performing a valitation similar to that of
+regular transactions.
 
 {\bf Isolation} is perhaps the hardest property to demonstrate. When
 performing a read operation within a Long Lived Transaction, the
@@ -1491,25 +1407,6 @@ transactions, written values are kept in transaction-local storage
 (i.e. in \texttt{LogEntries}) and as such, can only be accessed by the
 transaction itself.
 
-{\bf Durability} is an ``optional'' property, as not all JVSTM-based
-backends provide persistent support. Those that do however, ensure
-that the effects of Long Lived Transactions are durable, as it works as
-if writes occurred in a single regular transaction (which already
-provides the Durability property).
-
-I have shown that Long Lived Transactions provide the same correctness
-guarantees as regular transactions. There is, however, one key piece
-missing. Correctness is only guaranteed provided that all the
-information about reads and writes is collected throughout the
-transaction, and is available at commit time.
-
-Recall from the previous sections that in each step of the Long Lived
-Transaction, every read and write operation is intercepted, and for
-each operation a record is created. Such records are kept in
-\texttt{LogEntries}, which in turn are writting using regular
-transactions. As such, once the LLT is committing, it is able to read
-all the recorded data, and use it for all the necessary verifications
-and data updates.
 
 \subsubsection{Ease of Use}
 
