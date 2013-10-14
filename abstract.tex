@@ -29,7 +29,7 @@
 
 %% Title
 \author{Jo\~{a}o Pedro Carvalho} \institute{T\'{e}cnico de
-  Lisboa/Universidade T\'{e}cnica de Lisboa\newline
+  Lisboa/Universidade T\'{e}cnica de Lisboa
   \email{joao.pedro.carvalho@ist.utl.pt}}
 \maketitle
 
@@ -84,11 +84,6 @@ applications. Due to their duration, Long-Lived Transactions pose some
 challenges not encountered in short transactions, and thus, many
 attempts have been made to support them. Despite such attempts,
 support is either non existing or lackluster.
-
-The main targets of this work are enterprise applications in which the
-domain objects are persistent, transactionally updated, and handled
-transparently at an infrastructural level (meaning that the programmer
-should be mostly unaware of the persistence/data tier).
 
 \subsection{Thesis Statement}
 
@@ -158,10 +153,9 @@ have a department. Each department is responsible for managing its
 courses, meaning that it is up to someone who works in the department
 to start the process of creating new courses. The creation of a new
 course should be executed transactionally, because other users of the
-system should not be able to see a course in an inconsistent state.
-
-There are several ways to implement this operation. I will now
-describe two common scenarios for said implementation.
+system should not be able to see a course in an inconsistent
+state. There are several ways to implement this operation using
+already existing functionality.
 
 \subsubsection{Business Transaction in a single interaction}
 
@@ -484,59 +478,27 @@ return the database to its original state, but instead acts upon the
 
 \subsubsection{Offline Concurrency Patterns}
 
-Martin Fowler, in his book {\it Patterns of Enterprise Application
-  Architecture} \cite{fowler2003patterns}, introduces a series of {\it
-  Offline Concurrency Patterns}, as the building blocks for Long-Lived
-Transaction support at the application level. In his patterns, Fowler
-assumes that a Long-Lived Transaction is run as a series of
-short-lived system transactions, whose transactional support is
-provided by the underlying DBMS.
+In \cite{fowler2003patterns}, Martin Fowler introduced a series of
+{\it Offline Concurrency Patterns} as the building blocks for
+Long-Lived Transactions using simple DBMS-provided regular
+transactions. In the book, the author presented the concept of {\it
+  Optimistic} and {\it Pessimistic} Offline Locks, as
+application-level workarounds to support Long Lived Transactions.
 
-The patterns provide a workaround for the fact that the ACID
-properties are broken when using several system transactions.
+The {\bf Optimistic Offline Lock} solves the problem by validating
+that the changes about to be committed by one session (or business
+transaction) do not conflict with the changes of another session. This
+is achieved by, once the session is being committed, validating that
+the changes about to be committed are consistent, making sure that the
+value previously read by the current session was not changed by
+another session (i.e. obtaining an Optimistic Offline Lock). If the
+version cannot be validated, a conflict is detected and the LLT is aborted.
 
-\begin{itemize}
-\item {\bf Optimistic Offline Lock} This pattern solves the problem by
-  validating that the changes about to be committed by one session (or
-  business transaction) do not conflict with the changes of another
-  session. This is achieved by, once the session is being committed,
-  validating that the changes about to be committed are consistent,
-  making sure that the value previously read by the current session
-  was not changed by another session (i.e. obtaining an Optimistic
-  Offline Lock).  The most common implementation of this pattern
-  consists on associating a version number with the record in the
-  system. When a record is loaded, the record's version is kept in the
-  session, and that version is used when acquiring the Optimistic
-  Offline Lock (by comparing the two versions). Once the lock is
-  successfully acquired, the record's version is incremented, and the
-  system transaction can be committed. If the lock cannot be acquired,
-  a conflict is detected, the current system transaction is rolled
-  back, and the business transaction must either abort or attempt to
-  resolve the conflict and retry.
-
-\item {\bf Pessimistic Offline Lock} This pattern prevents conflicts
-  by avoiding them altogether. It forces a business transaction to
-  acquire a lock in each record before using it, so once you begin the
-  business transaction, you are mostly sure that it will complete
-  without concurrency control issues. These locks however, are not
-  database-level locks, but are instead high-level, typically managed
-  by a lock manager in the application, and can have various
-  granularities (which will have different impacts on system
-  performance). In this pattern, whenever a business transaction
-  wishes to access a record (for either read or write), it must
-  acquire a lock with the lock manager, ensuring that a business
-  transaction that wishes to write for that particular record is the
-  only one doing so.
-\end{itemize}
-
-Typically {\bf Optimistic Offline Lock}s are used in an environment
-where conflicts are expected to be low. If conflicts are likely, it is
-not good user experience to report a conflict after the user finished
-his work and is ready to commit. In that case, a {\bf Pessimistic
-  Offline Lock} is in order, avoiding throwing away work, because
-conflicts can be detected early in the transaction. Also, if the cost
-of a conflict is too high, no matter its likelihood, this is the
-appropriate pattern.
+The {\bf Pessimistic Offline Lock} prevents conflicts by avoiding them
+altogether. It forces a business transaction to acquire a logical lock
+(in a specific lock table) in each record before using it, so once you
+begin the business transaction, you are mostly sure that it will
+complete without concurrency control issues.
 
 Although with the use of these patterns the development of Long-Lived
 Transactions is facilitated, they require the programmer to pollute
@@ -548,63 +510,31 @@ infrastructural level.
 A Workflow Process is described as a sequence of connected steps (or
 activities), with special emphasis on the flow paradigm, where each
 step of the process follows the precedent, and ends just before the
-next step can begin.
+next step can begin. A Workflow Process typically may have a long
+duration and involve many users. It should be clear that a Workflow
+Process presents many similarities with a Long Lived Transaction, and
+as such, may be a suitable solution to implement them.
 
-A Workflow Process typically may have a long duration, involve many
-users (in fact, each step is typically executed by a different user),
-and range across a variety of heterogeneous systems. Individual
-activities range from computer programs and applications to human
-activities such as meetings and decision making.
-
-In \cite{sheth1993transactional}, the term {\it Transactional
-  Workflow} was introduced, recognising the relevance of transactions
-to workflows. Transactional Workflows provide functionality required
-by each workflow process (such as task collaboration), which is
-usually not available in typical DBMSs. This, however, does not imply
-that workflows are similar to database transactions, nor that they
-support all the ACID properties (namely concurrency control, backward
-recovery, and data consistency).
-
-Workflow Management Systems (WFMSs) are the systems that manage
-user-defined Workflow processes for different types of jobs and
-processes. It is the WFMS that provides the transactional properties
-to the transactional workflow. These include transaction management
-techniques such as logging, compensation, etc. Support for recovery
-and failure handling is lacking, unlike regular transaction systems,
-so WFMSs typically provide the means for the user to determine the
-actions necessary to recover from failure and consistency issues.
-
-In \cite{dayal1990organizing}, a workflow is seen as a {\it
-  Long-Running Activity}, and is modeled as a set of execution units
-that may consist recursively of other activities, or top-level
-transactions. Control and data flow is specified either statically in
-the activity's {\it script}, or dynamically using
-Event-Condition-Action (ECA) rules. This model contemplates
-compensation, execution unit communication, activity status queries
-and exception handling.  However, such implementations are not
-suitable for the requirements defined in Section~\ref{sec:what}, due
-to the fact that most WFMSs do not provide full ACID properties.
+However, Workflow Processes are not concerned with the ACID properties
+in the same way as DBMSs. Instead, they let the intermediate state of
+the ongoing processes be visible to the outside world, and rely on
+compensatory actions to be executed in case a process fails and has to
+be rolled back. This isolation breach is not acceptable for the
+problem at hand, and as such, Workflow Management Systems are not
+suitable to implement Long Lived Transactions.
 
 \subsection{Object-Relational Mapping}
 \label{sec:orm}
 
 Due to the increase in popularity of object-oriented programming, a
 large number of Object-Relational Mapping (ORM) tools have arisen over
-the past few years \cite{orm}. These tools range from simple data
-access layer abstractions (which simply abstract the necessary
-instructions to perform the desired operation), to fully fledged tools
-that handle every aspect of the Object-Relational Mapping, making the
-underlying database completely transparent to the programmer.
-
-To provide transactional support for domain objects, ORMs typically
-delegate transaction management to the underlying Database (which is
-assumed to provide full ACID support). In fact, as of this writing,
-all the examples shown above operate this way. Thus, Long-Lived
+the past few years \cite{orm}. These tools provide an object-oriented
+view of the database, making it completely transparent to the
+programmer. To provide transactional support for domain objects, ORMs
+typically delegate transaction management to the underlying Database
+(which is assumed to provide full ACID support). Thus, Long-Lived
 Transaction support in ORM tools is largely dependent on the
-underlying DBMS, presenting the same challenges as described in
-Section~\ref{sec:rdbms}.
-
-\subsubsection{JPA Optimistic Concurrency Control}
+underlying DBMS.
 
 The specification of the Java Persistence
 API\footnote{\texttt{http://jcp.org/en/jsr/detail?id=317}} (JPA)
@@ -613,16 +543,13 @@ locking). In this context, optimistic locking is used to prevent the
 database from holding on to critical resources, potentially causing
 high degrees of contention.  This is achieved by operating directly on
 the domain objects (in memory), delaying the propagation of the
-changes to the database as much as possible.
-
-As part of the JPA, there is the concept of Version field. This field
-allows {\it disconnected operation}, meaning that the reads/writes
-from the database are deferred until a checkpoint or the end of
-transaction. When using this optimistic approach, all the versions of
-the objects used in the transaction are checked against the version
-present in the database, thus ensuring that no dirty reads will occur.
-
-\subsubsection{Hibernate Long Conversations}
+changes to the database as much as possible. As part of the JPA, there
+is the concept of Version field. This field allows {\it disconnected
+  operation}, meaning that the reads/writes from the database are
+deferred until a checkpoint or the end of transaction. When using this
+optimistic approach, all the versions of the objects used in the
+transaction are checked against the version present in the database,
+thus ensuring that no dirty reads will occur.
 
 Hibernate supports the concept of {\it Long Conversations} by allowing
 a session to remain open as long as the user interaction lasts,
@@ -634,21 +561,13 @@ database transaction can update data. Hibernate assists the programmer
 in verifying that the data read across the multiple transactions is
 consistent, using an object versioning mechanism. However, this
 verification only works if all the data required for the application
-is read within the first database transaction.
-
-It should be clear that this support is far from our requirements. It
-imposes a pattern that may not be suited for many applications.  All
-the state of the transaction is kept in memory, which may cause the
-application to run out of memory in very large transactions. Despite
-the versioning support, the business transaction may still suffer from
-inconsistent reads, as it spans multiple isolated database
-transactions. Suppose that in a database transaction (T2) other than
-the first one (T1), the application reads an object for the first
-time. If the object was concurrently modified by yet another
-transaction (T3) that occurred between T1 and T2, T2 would see the
-value written by T3, which would not be consistent. As such, these
-transactions are not {\it Serializable} (See Section
-\ref{sec:isolation}).
+is read within the first database transaction. It should be clear that
+this support is far from our requirements. It imposes a pattern that
+may not be suited for many applications.  All the state of the
+transaction is kept in memory, which may cause the application to run
+out of memory in very large transactions. Despite the versioning
+support, the business transaction may still suffer from inconsistent
+reads, as it spans multiple isolated database transactions.
 
 
 \subsection{Software Transactional Memories}
@@ -683,25 +602,9 @@ programmer to confine all of the application's mutable state to these
 memory locations, whereas some STMs provide fully transactional
 memory. It is the responsibility of the STM to guarantee that
 concurrent accesses to such memory locations are correct according to
-the specified correctness criteria.
-
-\subsubsection{Correctness Criteria}
-\label{sec:opacity}
-
-In Section~\ref{sec:isolation}, I presented the typical isolation
-levels (or correctness criteria) that can be found in DBMS. In
-\cite{guerraoui2008correctness}, the author claims that the {\it
-  traditional} correctness criteria are unfit for TM implementations,
-and proposes the {\it opacity} criterion. Opacity is described as a
-safety property that ensures that ``[...] (1) all operations performed
-by every {\it committed} transaction appear as if they happened at
-some single, indivisible point during the transaction lifetime, (2) no
-operation performed by any {\it aborted} transaction is ever visible
-to other transactions (including live ones), and (3) every transaction
-always observes a {\it consistent} state of the system.'', meaning
-that unlike Serializability, even {\it non-committed} transactions are
-prevented from accessing inconsistent states. This correctness
-criteria is ensured by many TM systems.
+the specified correctness criteria. In particular, in
+\cite{guerraoui2008correctness}, an {\it Opacity} correctness criteria
+is defined for STMs.
 
 \subsubsection{Nested Transactions}
 
@@ -710,27 +613,25 @@ modularize their applications and have them abide by well-defined
 interfaces. Lock-based approaches do not cope well with this
 principle, because the programmer must be aware of module's internal
 locking conventions. Transactions, on the other hand, do not have this
-limitation, allowing for better composability.
-
-In the transaction paradigm, it would then be common for application
-code to make a call to a library that uses transactions to protect its
-shared internal state. In this scenario, the transaction created by
-the library would be {\it nested} in the outer (application-owned)
-transaction. Nested Transactions are an extension to the basic
-transaction structure, supporting multiple levels of transactions:
-Transactions that may contain other sub-transactions, forming a
-transaction tree. Nested Transactions have long been used in the
-database world, and many of its concepts have been adapted to
-transactional memories. Consider the kind of monolithic transactions
-commonly found in enterprise applications. In such transactions, the
-volume of work that must be done if the transaction needs to be
-rolled-back is increased. Using nested transactions, smaller portions
-of the work can be done in isolation, each within a nested
-transaction. If one of those portions fails, only that portion needs
-to be rolled-back, and an attempt can be made to compensate for that
-failure. Similarly, clients of opaque libraries may suffer performance
-hits if the transaction fails because of the work performed in said
-libraries.
+limitation, allowing for better composability. In the transaction
+paradigm, it would then be common for application code to make a call
+to a library that uses transactions to protect its shared internal
+state. In this scenario, the transaction created by the library would
+be {\it nested} in the outer (application-owned) transaction. Nested
+Transactions are an extension to the basic transaction structure,
+supporting multiple levels of transactions: Transactions that may
+contain other sub-transactions, forming a transaction tree. Nested
+Transactions have long been used in the database world, and many of
+its concepts have been adapted to transactional memories. Consider the
+kind of monolithic transactions commonly found in enterprise
+applications. In such transactions, the volume of work that must be
+done if the transaction needs to be rolled-back is increased. Using
+nested transactions, smaller portions of the work can be done in
+isolation, each within a nested transaction. If one of those portions
+fails, only that portion needs to be rolled-back, and an attempt can
+be made to compensate for that failure. Similarly, clients of opaque
+libraries may suffer performance hits if the transaction fails because
+of the work performed in said libraries.
 
 Nested Transactions present many similarities with Long-Lived
 Transactions. In both cases there is a top-level transaction, which
@@ -752,36 +653,15 @@ shifting the responsibility for transaction handling to the STM,
 enterprise applications can benefit from the many advancements in the
 STM area, such as multi-core machine scaling, stronger correctness
 guarantees and nonblocking progress conditions such as lock freedom.
-
 Using a PSTM, enterprise application developers no longer have to
-trade correctness for performance. Modern PSTM implementations allow
-for Strict Serializability, while providing better performance than
-regular DBMSs, yielding a throughput increase of up to 23 times
-\cite{fernandes2011strict}.
+trade correctness for performance.
 
 Another advantage of PSTMs is that, like in STMs, the programmer
 benefits from a much simpler and transparent programming model,
 allowing for much cleaner and maintainable code, better composability
 by using lock-free data structures, making the process of translating
-business requirements to code much simpler and bug-free.
-
-In this project, I aim at extending the PSTM model, by adding the
-necessary building blocks to support Long-Lived Transactions
-(described in Section~\ref{sec:arch}).
-
-\subsection{Why those solutions are unfit}
-
-Among all the solutions presented above, one common aspect stands out:
-They all require the programmer to deal with Long-Lived Transactions
-at the application level, which goes against my claim that support
-should be transparent, and at an infrastructural level.
-
-Some of the presented solutions are based on relaxation of
-transactional properties, such as allowing breaches in
-isolation. Long-Lived Transactions should run with the same
-transactional properties as regular transactions, and thus, relaxation
-is not acceptable. None of the proposed solutions fit the
-requirements, and thus, a new approach is needed.
+business requirements to code much simpler and bug-free. This work
+aims at extending the PSTM model with Long Lived Transaction support.
 
 %% FF
 
@@ -804,33 +684,16 @@ domain definition.
 
 In a DML file, programmers write their domain definition in a
 Java-like language. A class definition consists of the class name, the
-entity slots (either primitive or value types), and the super
-class. Relations in DML are named, first-class citizens that represent
-relationships between two classes. Relations are always
-bi-directional, meaning that updating one side of the relation will
-automatically update the other side. Relations can be concealed in one
-of the sides (meaning that it will not be possible to access it),
-however their state is still kept.
-
+entity slots, and the super class. Relations in DML are named,
+first-class citizens that represent relationships between two
+classes. Relations are always bi-directional, meaning that updating
+one side of the relation will automatically update the other
+side. Relations can be concealed in one of the sides (meaning that it
+will not be possible to access it), however their state is still kept.
 It is possible to define {\it one-to-one}, {\it one-to-many} and {\it
-  many-to-many relationships}, and it is possible to define boundaries
-on the multiplicity of each relation (for example, a
-\texttt{Department} can have between 0 and 30 \texttt{Courses}). Any
-violation to these constraints would put the relation in an
-inconsistent state and is discarded.
-
-To-many relations in the Fenix Framework have Set semantics, meaning
-that an object can only be present in a relation once. Also, there are
-no ordering guarantees when accessing the relation.
-
-Consider the relation between the \texttt{Course} and
-\texttt{Department} classes shown Figure~\ref{fig:courseDomain}. The
-relation would be given a name that describes the relationship between
-the two classes, as well as names to describe the role each class
-takes in the relation. The multiplicity is defined for each of the
-roles, in this case, one \texttt{Department} has zero or more
-\texttt{Courses}, and one \texttt{Course} has between one and one
-(exactly one) \texttt{Department}.
+  many-to-many relationships}. To-many relations in the Fenix
+Framework have Set semantics, meaning that an object can only be
+present in a relation once.
 
 From the domain definition, the Fenix Framework generates Java getters
 and setters for the properties and relations. For each class described
@@ -839,37 +702,23 @@ programmers can include business logic, and a \texttt{Base} class
 (which the domain class extends) containing generated methods to
 access the persistent entities of the object.
 
-\subsubsection{Value Types}
-\label{sec:json}
-
 In the DML there is a distinction between entities and value
-objects. Whereas an entity is transactional and persistent, a value
-object is immutable and not persistent. Value objects are used as the
-values for slots of DML classes, and must be of well-known types,
-known as Value Types. A value type contains information regarding the
-Java Type (such as \texttt{java.math.BigDecimal}), an alias (such as
-\texttt{BigDecimal}), and information regarding how the object will be
-externalised/internalized.
+objects. Value Objects are immutable and not persistent by
+themselves. They are used as the values for slots of DML classes, and
+must be of well-known types, known as Value Types. A value type
+contains information regarding the Java Type an alias and information
+regarding how the object will be externalised/internalized.
 
 \subsection{Architecture}
 \label{sec:ff-arch}
 
-The first versions of the Fenix Framework (as presented in
-\cite{fernandes2011strict}) had a rather monolithic
-architecture. Transactional support was provided by the JVSTM (see
-Section \ref{sec:jvstm}), and persistence was implemented on top of
-MySQL, leaving the programmer with no other choice of technology.
-
-With the second major version of the Framework (released earlier this
-year), a great architectural shift has occurred. There is now a clear
-separation between the Framework's public API and the
-transactional/persistence backends, allowing for a ``write once, run
-everywhere'' paradigm. The programmer simply writes his application
-against a public API and is able to run it on multiple backends. This
-way, not only are applications portable across several technologies,
-but also testing support is greatly enhanced, as there is no need to
-mock the persistence API, as tests can be run using an in-memory
-backend.
+The Fenix Framework's architecture provides a clear separation between
+the Framework's public API and the transactional/persistence
+backends. The programmer writes his application against a public API
+and is able to run it on multiple backends. This way, not only are
+applications portable across several technologies, but also testing
+support is greatly enhanced, as it is able to simply plug a transient
+persistence support.
 
 The \texttt{DML Compiler} module contains the parser responsible for reading
 DML files and creating an in-memory description of the Domain Model,
@@ -886,8 +735,6 @@ all defined in this module.
 The \texttt{DML Compiler} and \texttt{Core API} modules are the Fenix
 Framework's public API, providing everything necessary to the
 development of backend-independent application modules.
-
-\subsubsection{Backends}
 
 Backends are a crucial part of the Fenix Framework. They provide
 concrete implementations of the transactional and persistence
@@ -922,32 +769,19 @@ of the persistence API.
 A plain JVSTM VBox is simply a wrapper to a Linked-List of pairs
 [Version, Value], containing the history of values for that box. In
 the Fenix Framework, VBoxes are specialised to hold the value of an
-object's slot (persistent slot declared in the DML). A Fenix
-Framework VBox contains a back-pointer to its owner, as well as the
-name of the slot it represents. This allows for the persistence
-support to know where to store the value of the Box.  Those
-specialised VBoxes can have their previous values Garbage-Collected
-and reloaded from persistent support on-demand.
-
-In terms of VBoxes, {\it to-one} relations are treated just like any
-other slot, and as such, the reference to the related object is simply
-kept within a regular VBox.
-
-To-many relations however, are handled in a very different manner. The
-preferred approach is to use a B+Tree \cite{elmasri2009fundamentals}
-to store the objects on the to-many side of the relation. For each
-to-many relation, a VBox is generated, referencing the domain object
-representing the B+Tree.
-
-The Fenix Framework provides an implementation of persistent B+Trees
-that does not use to-many relations (by design, so it can be used to
-implement them). In this implementation, each node of the tree is a
-domain object containing only a reference to its parent and its
-sibling. Inner nodes use an immutable TreeMap wrapper to keep indexed
-references to the nodes they point to. Leaf nodes follow the same
-strategy, keeping the mapping between keys and the objects they point
-to (in reality they can be used to point at anything, however for this
-document we are only interested in B+Trees containing domain objects).
+object's slot (persistent slot declared in the DML). A Fenix Framework
+VBox contains a back-pointer to its owner, as well as the name of the
+slot it represents. This allows for the persistence support to know
+where to store the value of the Box.  Those specialised VBoxes can
+have their previous values Garbage-Collected and reloaded from
+persistent support on-demand. In terms of VBoxes, {\it to-one}
+relations are treated just like any other slot, and as such, the
+reference to the related object is simply kept within a regular
+VBox. To-many relations however, are handled in a very different
+manner. The preferred approach is to use a B+Tree
+\cite{elmasri2009fundamentals} to store the objects on the to-many
+side of the relation. For each to-many relation, a VBox is generated,
+referencing the domain object representing the B+Tree.
 
 %% Solution
 
@@ -1256,13 +1090,12 @@ steps are executed:
 As domain slots can hold virtually any value, it is not possible to
 store the value directly in a single statically typed Fenix Framework
 slot. To solve this issue, the values are stored in JSON format, in a
-single slot on the \texttt{LogEntry} class. Recall from
-Section~\ref{sec:json} that the Fenix Framework provides native
-support for converting any ValueType to/from JSON. With a little help
-from the backend-specific Code Generation step, domain objects can now
-be asked to convert the value of a given slot to/from JSON, making it
-possible for Long Lived Transactions to get a JSON value from any
-VBox.
+single slot on the \texttt{LogEntry} class (Recall that the Fenix
+Framework provides native support for converting any ValueType to/from
+JSON). With a little help from the backend-specific Code Generation
+step, domain objects can now be asked to convert the value of a given
+slot to/from JSON, making it possible for Long Lived Transactions to
+get a JSON value from any VBox.
 
 When the transaction finishes, the \texttt{LLTStepTransaction} has in
 its Read and Write Sets the actual VBoxes that were read/written
@@ -1382,10 +1215,10 @@ aspects.
 One of the greatest challenges when implementing Long Lived
 Transactions is ensuring that the solution provides the same
 correctness guarantees as regular transactions. Transactions in the
-JVSTM satisfy the Opacity correctness properties (refer to
-Section~\ref{sec:opacity}). The proposed solution provides all the
-ACID properties for Long Lived Transactions, as well as the Opacity
-correctness property.
+JVSTM satisfy the Opacity correctness properties
+\cite{guerraoui2008correctness}. The proposed solution provides all
+the ACID properties for Long Lived Transactions, as well as the
+Opacity correctness property.
 
 Throughout the execution of the Long Lived Transaction, written data
 is collected and stored inside the \texttt{Transactional Context}. Once
@@ -1394,7 +1227,7 @@ to the global context, using a regular transaction which simply reads
 data from one domain object to be written in another.  Long Lived
 Transactions are {\bf consistent}. Similarly to regular transactions,
 a LLT only commits if all the data read during the transaction is
-still valid at commit time, performing a valitation similar to that of
+still valid at commit time, performing a validation similar to that of
 regular transactions.
 
 {\bf Isolation} is perhaps the hardest property to demonstrate. When
@@ -1406,7 +1239,6 @@ transactions.  As for writes, similarly to what happens with regular
 transactions, written values are kept in transaction-local storage
 (i.e. in \texttt{LogEntries}) and as such, can only be accessed by the
 transaction itself.
-
 
 \subsubsection{Ease of Use}
 
@@ -1443,37 +1275,27 @@ transactions are run within the context of one large Long Lived
 Transaction.
 
 Figure~\ref{fig:comparisonFinal} shows the running time for a varying
-number of operations of the application presented above. As expected,
-the running time grows linearly as the number of operations increases.
-When looking at the Long Lived version (where every operation is a
-step of one large Long Lived Transaction), performance quickly
+number of operations of the application presented above.  When looking
+at the performance of the Long Lived version (where every operation is
+a step of one large Long Lived Transaction), performance quickly
 degrades as the number of operations grows. The main reason for this
 performance hit is that every box read will cause many other boxes to
 be read (instead of just reading the box directly, all LogEntries
-representing the write set must be traversed, meaning that many more
-boxes are read along the way, and many more boxes will be read as the
-transaction grows in size). Recall that each slot of an object is kept
-in a separate box, and as such reading a single Log Entry will cause
-at least 4 boxes to be read: the slot name, the target object, the
-next box in the list and the value of the entry.
-
-However, \texttt{LogEntries} belonging to the Read Set have no need
-for the value slot, as they only exist to signal that a specific slot
-of a specific object was read. The Read Set need only keep pairs
+representing the write set must be traversed). Recall that each slot
+of an object is kept in a separate box, and as such reading a single
+Log Entry will cause several boxes to be read. However,
+\texttt{LogEntries} belonging to the Read Set have no need for the
+value slot, as they only exist to signal that a specific slot of a
+specific object was read. The Read Set need only keep pairs
 [DomainObject, SlotName], and using \texttt{LogEntries} just for that
-is rather expensive.
+is rather expensive. As such, the Read Set has been replaced by an
+immutable ValueType, containing a set of DomainSlotKey's (an
+immutable, lightweight object representing the pair [DomainObject,
+Slot]), stored directly into the \texttt{TransactionalContext}.
 
-As such, the Read Set has been replaced by an immutable ValueType,
-containing a set of DomainSlotKey's (an immutable, lightweight object
-representing the pair [DomainObject, Slot]), stored directly into the
-\texttt{TransactionalContext}. This optimization greatly reduced the
-space required by the Transaction (both in-memory and persistently),
-as the representation of the Read-Set became more compact (a single
-slot in an object vs several objects).
-
-The Fenix Framework uses B+Trees and other collections to implement
-{\it to-many} relations. These collections are transparently handled
-by the Framework, and are implemented using regular Domain Objects. As
+The Fenix Framework uses B+Trees to implement {\it to-many}
+relations. These collections are transparently handled by the
+Framework, and are implemented using regular Domain Objects. As
 keeping track of changes in relations is a requirement for our
 implementation, it is critical that changes to B+Trees are correctly
 tracked. This meant that in the original implementation, the relations
@@ -1485,20 +1307,15 @@ with a head pointer in the \texttt{TransactionalContext}.  This
 approach proved to be quite inefficient, as lookups in the Write Set
 were {\it O(n)} in the number of written objects, making it
 impractical, as every \texttt{getBoxValue} operation required
-potentially traversing the whole list.
-
-To solve this issue, a specialised \texttt{WriteSetBPlusTree} was
-developed. The major difference between a \texttt{WriteSetBPlusTree}
-and a regular BPlusTree is that the former is designed to be kept out
-of the scope of the TransactionalContext, making it possible to use it
-to implement the one-to-many relation between a TransactionalContext
-and its LogEntries. Lookup times are now {\it O(log(n))} on the number
-of written objects.
-
-In Figure~\ref{fig:comparisonFinal} we can see that the running time
-using BPlusTrees is closer to the regular version. However, the growth
-rate (while linear) is still bigger than the original, with the
-benchmark taking on average 4.4x to complete.
+potentially traversing the whole list. To solve this issue, a
+specialised \texttt{WriteSetBPlusTree} was developed. The major
+difference between a \texttt{WriteSetBPlusTree} and a regular B+Tree
+is that the former is designed to be kept out of the scope of the
+TransactionalContext, making it possible to use it to implement the
+one-to-many relation between a TransactionalContext and its
+LogEntries. In Figure~\ref{fig:comparisonFinal} we can see that the
+running time using BPlusTrees is closer to the regular
+version. 
 
 This approach, however, brought another issue. Despite having great
 lookup times, the commit of a Long Transactions's step was greatly
@@ -1506,40 +1323,22 @@ affected. Whereas inserting elements in a Linked List is {\it O(1)},
 the insertion in the BPlusTree was rather slow. This is because the
 implementation of the BPlusTree does not support batch insertion, and
 each insert requires a part of the tree's internal structures to be
-duplicated.
-
-To solve this issue, the B+Tree was replaced with an immutable
-ValueType, containing the mapping between all written slots and their
-respective values. With this change, \texttt{LogEntries} were
-completely taken out of the picture, as the only extra piece of
+duplicated. To solve this issue, the B+Tree was replaced with an
+immutable ValueType, containing the mapping between all written slots
+and their respective values. With this change, \texttt{LogEntries}
+were completely taken out of the picture, as the only extra piece of
 information they provided was the JSON contents of the slot, which
-could be embedded directly into the WriteSet object.
-
-The issue with this approach is that, due to the immutability
-requirement, every time a batch of entries was inserted, the whole Map
-had to be duplicated, which was rather wasteful both in terms of time
-and allocated memory. So, instead of duplicating the whole Map, the
-WriteSet is actually a Linked-List of Maps, containing one node per
-transaction step. This means that the performance of lookups is now
-{\it O(s*log(n))}, {\it n} being the average size of each step, and
-{\it s} the number of steps (in which something is written) of the
-transaction.
-
-This solution provides quite competitive
-results. Figure~\ref{fig:comparisonFinal} shows a runtime comparison
-between using regular transactions and the final implementation of
-Long Lived Transactions: The slow down is now under 40\%.
-
-There is also one very important measurement that has not been
-mentioned thus far: The performance impact of the solution in regular
-transactions. A solution in which Long Lived Transactions are
-performant at the cost of having expensive regular transactions is not
-an acceptable one. For the proposed solution, there is close to zero
-overhead on starting regular transactions. The only performance hit is
-the added verification upon starting a new transaction, to check
-whether the current thread if bound to a
-\texttt{TransactionalContext}. Other than that, no changes were made
-that would affect the performance of regular transactions.
+could be embedded directly into the WriteSet object. The issue with
+this approach is that, due to the immutability requirement, every time
+a batch of entries was inserted, the whole Map had to be duplicated,
+which was rather wasteful both in terms of time and allocated
+memory. So, instead of duplicating the whole Map, the WriteSet is
+actually a Linked-List of Maps, containing one node per transaction
+step. This means that the performance of lookups is now {\it
+  O(s*log(n))}, {\it n} being the average size of each step, and {\it
+  s} the number of steps (in which something is written) of the
+transaction. This solution provides quite competitive results, with a
+slow down of under 40\%.
 
 \begin{figure}
 \centering
