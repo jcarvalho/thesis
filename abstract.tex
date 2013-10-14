@@ -151,24 +151,22 @@ application in the higher education domain.
 In this simplified domain model, a course belongs to a department, has
 a name, its objectives, the credits granted upon completion, and the
 recommended bibliography. The domain is deemed to be consistent only
-if all attributes of course have a defined value, and each course must
-have a department. Each department is responsible for managing its
-courses, meaning that it is up to someone who works in the department
-to start the process of creating new courses. The creation of a new
-course should be executed transactionally, because other users of the
-system should not be able to see a course in an inconsistent
-state. There are several ways to implement this operation using
-already existing functionality.
+if all attributes of course have a defined value. Each department is
+responsible for managing its courses. The creation of a new course
+should be executed transactionally, because other users of the system
+should not be able to see a course in an inconsistent state. There are
+several ways to implement this operation on a web application, using already existing
+functionality.
 
 \subsubsection{Business Transaction in a single interaction}
 
-A possible implementation of the course creation operation in a web
-application is to have a single page in which the user provides all
-the required information. Once the information is submitted, a new
-\texttt{Course} is created, associated with the respective department,
-and all its attributes are filled according to the information
-submitted by the user. The new object is then stored in the database,
-making it persistent and available for other users to view.
+A possible implementation of the course creation operation is to have
+a single page in which the user provides all the required
+information. Once the information is submitted, a new \texttt{Course}
+is created and all its attributes are filled according to the
+information submitted by the user. The new object is then stored in
+the database, making it persistent and available for other users to
+view.
 
 In this scenario, the transactional guarantees of the operation are
 ensured by the underlying database (which is assumed to provide the
@@ -181,39 +179,32 @@ which the modifications to the objects are performed is irrelevant, as
 long as the domain is consistent when the transaction is
 committed. This is the semantics typically expected by a programmer of
 such applications: There may be instants in which some domain objects
-are in an inconsistent state (e.g. before defining the course's
-bibliography), but this inconsistent state will never be seen by the
-other users of the application. Those users will see the fully created
-object only when the operation is committed.
+are in an inconsistent state, but this inconsistent state will never
+be seen by the other users of the application. Those users will see
+the fully created object only when the operation is committed.
 
 \subsubsection{Business Transaction across multiple interactions}
 
 The model described in the previous scenario may not be suited for
 every situation. Imagine that instead of four attributes,
 \texttt{Course} had 50 attributes. It would then be unfeasible to ask
-the user to fill everything out in a single web page. So, one possible
+the user to fill everything out in a single web page. One possible
 solution would be to split the various attributes in multiple pages,
-accounting for multiple user interactions. Let us now assume that the
-creation of a course is made throughout three interactions. In the
-first interaction, the user selects the course's name; in the second
-interaction, the user introduces the objectives and credits; and in
-the final interaction, the user selects the bibliography, thus
-creating the course.
+accounting for multiple user interactions. 
 
 At first glance, it would seem quite easy for a programmer to change
 the logic programmed in the first scenario to meet the new
 requirements: The programmer would simply have to split the code
-performed in a single request into three smaller parts, each to be
-executed in one request. Yet, having three separate requests implies
-having three different database transactions, breaking the atomicity
-and isolation of the operation. After handling the first request, the
-persisted domain would be in an inconsistent state (a course with no
-attributes other than its name). The implementation of the business
-logic must then take this issue into account, because the programmer
-cannot write the updates directly on the domain. This scenario
-represents what was defined as a Long-Lived Transaction, in which the
-Business Operation has a larger lifetime that a single database
-transaction (in this particular case, three database transactions).
+performed in a single request into smaller parts, each to be executed
+in one request. Yet, having separate requests implies having different
+database transactions, breaking the atomicity and isolation of the
+operation. After handling the first request, the persisted domain
+would be in an inconsistent state (a course without all attributes
+filled). The implementation of the business logic must then take this
+issue into account, because the programmer cannot write the updates
+directly on the domain. This scenario represents what was defined as a
+Long-Lived Transaction, in which the Business Operation has a larger
+lifetime that a single database transaction.
 
 \subsection{Why are they difficult to implement?}
 \label{sec:difficult}
@@ -238,51 +229,44 @@ alternative approaches.
 
 \subsubsection{Parallel Representation of the domain}
 
-In this approach, a series of objects similar to the domain objects
-are created, and must be managed manually, kept in the user's session
-context, outside the domain. As the complexity of the domain and the
-number of objects manipulated by the operation grows, it becomes
-harder for the programmer to manage manually all of the data that must
-be kept. Ultimately, there is a copy of the whole domain stored in the
-user's session, waiting for the last transaction to update the domain
-with all the information entered by the user. This is the opposite of
-what would be desirable for the programmer: She should be able to
-operate directly on the domain.
+In this approach, a series of manually managed objects similar to the
+domain objects are created and kept outside the domain. As the
+complexity of the domain and the number of objects manipulated by the
+operation grows, it becomes harder for the programmer to manage
+manually all of the data that must be kept. Ultimately, there is a
+copy of the whole domain stored in the user's session, waiting for the
+last transaction to update the domain with all the information entered
+by the user. This is the opposite of what would be desirable for the
+programmer: It should possible to operate directly on the domain.
 
 \subsubsection{Changing the domain model}
 
-Now imagine that an additional requirement is added to the system: The
-user may be allowed to log off in the middle of the process, and, upon
-logging back in, continue the work where she left off. With this
-requirement, it becomes clear that simply storing a copy of the domain
-in session-local storage is not enough. Application context storage is
-not enough either, just like session-local storage, there are no
-guarantees that the data will survive system restarts, meaning that
-the intermediate data must be manually kept persistently.  A possible
-solution for this requirement is to change our domain model, by adding
-a new attribute to the objects being modified (in this case,
-\texttt{Course}). The \texttt{status} attribute indicates whether the
-course is in a consistent state (\texttt{Published}) or not
-(\texttt{Draft}). Adding this attribute has a cost: Not only the
-domain becomes polluted with information that is not relevant to the
-object being modeled, but this solution affects other functional code
-across the application (e.g., course listings must filter out courses
-that are still in the \texttt{Draft} status), scattering the filtering
-code throughout the application.
+Now imagine that the course creation process can span several
+days. Keeping the data in the user's session is not feasible, as the
+system may restart and discard the written information. This means
+that the intermediate data must be manually kept persistently.  A
+possible solution for this is to change our domain model, by adding a
+new attribute to the objects being modified. The \texttt{status}
+attribute would indicate whether the course is in a consistent state
+(\texttt{Published}) or not (\texttt{Draft}). Adding this attribute
+has a cost: Not only the domain becomes polluted with information that
+is not relevant to the object being modeled, but this solution affects
+other functional code across the application (e.g., course listings
+must filter out courses that are still in the \texttt{Draft} status),
+scattering the filtering code throughout the application.
 
 \subsection{Objectives}
 
-This Section shows that implementing Long Lived Transactions using
-current transaction support systems is a rather difficult task that
-promotes poor software engineering practices. As such, the work
-presented in this dissertation aims at providing a solution that: (a)
-Survives system restarts, ensuring that the intermediate data is
-always available, (b) Provides the same correctness guarantees as
-regular transactions, (c) Allows multiple users to collaborate
-concurrently on the execution of a Long Lived Transaction, (d) Does
-not impose an overhead on the execution of regular transactions and
-(e) Shows performance results comparable to those of regular
-transactions.
+Implementing Long Lived Transactions using current transaction support
+systems is a rather difficult task that promotes poor software
+engineering practices. As such, the work presented in this
+dissertation aims at providing a solution that: (a) Survives system
+restarts, ensuring that the intermediate data is always available, (b)
+Provides the same correctness guarantees as regular transactions, (c)
+Allows multiple users to collaborate concurrently on the execution of
+a Long Lived Transaction, (d) Does not impose an overhead on the
+execution of regular transactions and (e) Shows performance results
+comparable to those of regular transactions.
 
 
 %% Related Work
